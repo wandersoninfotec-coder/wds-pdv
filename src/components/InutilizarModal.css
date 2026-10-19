@@ -1,0 +1,33 @@
+/* src/components/InutilizarModal.css */
+.inm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 4000; padding: 20px;
+}
+.inm-content {
+  background: #fff; border-radius: 16px;
+  width: 100%; max-width: 520px; padding: 24px 28px;
+}
+.inm-title { font-size: 18px; margin: 0 0 12px; color: #b9770e; }
+.inm-aviso {
+  background: #fef3e5; padding: 12px 14px; border-radius: 8px;
+  font-size: 13px; color: #b9770e; margin-bottom: 16px;
+}
+.inm-grid { display: grid; grid-template-columns: 1fr 1fr 100px; gap: 10px; margin-bottom: 14px; }
+.inm-label { display: block; font-size: 12px; text-transform: uppercase; color: #7f8c8d; font-weight: 700; margin-bottom: 4px; }
+.inm-input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #d1d9e0; border-radius: 8px;
+  font-family: inherit; font-size: 14px; resize: vertical;
+}
+.inm-contador { text-align: right; font-size: 11px; color: #95a5a6; margin-top: 4px; }
+.inm-erro { background: #fdecea; color: #c0392b; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 13px; }
+.inm-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.inm-btn {
+  padding: 10px 18px; border: none; border-radius: 8px;
+  font-weight: 700; cursor: pointer; font-size: 14px; color: #fff;
+}
+.inm-btn-cinza { background: #95a5a6; }
+.inm-btn-laranja { background: #f39c12; }
+.inm-btn:disabled { opacity: 0.6; cursor: not-allowed; }

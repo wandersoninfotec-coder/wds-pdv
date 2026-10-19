@@ -1,0 +1,315 @@
+/* src/pages/ConfigPage.css */
+
+.cfg-container {
+  min-height: 100vh;
+  background-color: #f7f9fc;
+  display: flex;
+  flex-direction: column;
+}
+
+.cfg-header {
+  background-color: #ffffff;
+  padding: 14px 25px;
+  border-bottom: 1px solid #eaeef3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.cfg-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cfg-header-back {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background-color: #f0f3f7;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #5c6b7a;
+  transition: all 0.2s ease;
+}
+
+.cfg-header-back:hover {
+  background-color: #e0e5ec;
+}
+
+.cfg-header-logo-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cfg-header-logo {
+  font-size: 24px;
+}
+
+.cfg-header-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.cfg-header-subtitle {
+  font-size: 12px;
+  color: #95a5a6;
+  margin-top: 2px;
+}
+
+/* Conteúdo */
+.cfg-content {
+  flex: 1;
+  padding: 30px;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.cfg-card {
+  background-color: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+
+.cfg-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cfg-help {
+  font-size: 12px;
+  color: #95a5a6;
+  font-style: italic;
+  margin-bottom: 12px;
+}
+
+.cfg-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #5c6b7a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+
+.cfg-input {
+  width: 100%;
+  padding: 13px 16px;
+  font-size: 15px;
+  color: #2c3e50;
+  background-color: #f7f9fc;
+  border: 2px solid #eaeef3;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.cfg-input:focus {
+  border-color: #3498db;
+  background-color: #fff;
+}
+
+/* Temas */
+.cfg-temas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.cfg-tema-card {
+  padding: 16px 10px;
+  border-radius: 12px;
+  border: 2px solid #eaeef3;
+  background-color: #f7f9fc;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  position: relative;
+  font-family: inherit;
+}
+
+.cfg-tema-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.cfg-tema-icone {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.cfg-tema-nome {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.cfg-tema-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Preview */
+.cfg-preview {
+  background-color: #eef2f7;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 20px;
+}
+
+.cfg-preview-label {
+  font-size: 11px;
+  color: #95a5a6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cfg-preview-url {
+  font-size: 13px;
+  color: #2c3e50;
+  margin-top: 4px;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+/* Sucesso */
+.cfg-sucesso {
+  background-color: #eaf9f1;
+  color: #27ae60;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-top: 15px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* Botões */
+.cfg-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.cfg-btn {
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.cfg-btn-secundario {
+  flex: 1;
+  background-color: #f0f3f7;
+  color: #5c6b7a;
+}
+
+.cfg-btn-secundario:hover {
+  background-color: #e0e5ec;
+}
+
+.cfg-btn-primario {
+  flex: 2;
+  color: #fff;
+}
+
+.cfg-btn-primario:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.cfg-btn-primario:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Empresa detectada */
+.cfg-empresa-detectada {
+  background-color: #eaf9f1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 10px;
+  border-left: 4px solid #27ae60;
+}
+
+.cfg-empresa-label {
+  font-size: 11px;
+  color: #27ae60;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cfg-empresa-nome {
+  font-size: 16px;
+  color: #27ae60;
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+/* Erro */
+.cfg-erro {
+  background-color: #fdecea;
+  color: #e74c3c;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* Botão terciário (testar conexão) */
+.cfg-btn-terciario {
+  flex: 2;
+  background-color: transparent;
+  color: #3498db;
+  border: 2px solid #3498db;
+}
+
+.cfg-btn-terciario:hover:not(:disabled) {
+  background-color: #3498db;
+  color: #fff;
+}
+
+/* Ajusta as ações para caber 3 botões */
+.cfg-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}

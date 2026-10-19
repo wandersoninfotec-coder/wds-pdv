@@ -1,0 +1,291 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Sexta-feira, Setembro/2026
+Próxima sessão: Segunda-feira (foco: DLL TecnoSpeed)
+Status geral: Preparação fiscal 100% funcional e validada. Falta transmissão.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial) — PDV, mesas, financeiro, caixa, estoque.
+
+    Serviço PHP intermediário entre apps e banco.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop novo, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) no fechamento da venda via componente TecnoSpeed v6.0. Depois: TEF (débito, crédito, PIX).
+
+2. Stack/ferramentas
+
+    Backend: PHP 7.4+/8.x + PDO + MySQL + Apache (Windows, mesmo servidor do ERP).
+
+    Mobile: React Native 0.86 + Expo SDK 57.
+
+    Desktop: React + Electron.
+
+    Fiscal: Componente NFC-e TecnoSpeed v6.0 (NFCeX.ocx + NFCeDataSetX.dll), via COM/ActiveX. Integrador descontinuado.
+
+    Config: nfceconfig.ini (UF=MT, CNPJ=58717761000149, Ambiente=2 homologação).
+
+    Certificado A1 (TipoCertificado=File, Repositorio=CURRENT_USER_STORE).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; ← date_default_timezone_set('America/Cuiaba')
+├── core/Core.php                   ; ← PDO::ERRMODE_EXCEPTION + SET time_zone='-04:00'
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php             ; ✅ FUNCIONANDO
+│   └── NfceTransmissor.php        ; ❌ A CRIAR (segunda)
+└── logs/nfce_fiscal.log
+
+text
+
+src/ (Electron)
+├── components/
+│   ├── MesaDetalhesModal2.jsx     ; ⚠️ patch pendente (nfce no SuccessModal)
+│   ├── FinalizarVendaModal.jsx    ; ⚠️ patch pendente (finalizarEEmitir)
+│   └── SuccessModal.jsx           ; ✅ genérico, não muda
+└── services/pagamentoService.js   ; ⚠️ patch pendente (emitirNfce/finalizarEEmitir)
+
+4. O que já está pronto/validado
+4.1 Preparação fiscal (100%)
+
+    NfceFiscal::prepararTudo($empresa, $venda, $tipoOperacao) popula:
+
+        tab_nfce, nfce_identificacao, nfce_emitente, nfce_destinatario, nfce_produtos, nfce_produtos_impostos_icms, nfce_totais, nfce_totais_formapgto, nfce_informacoescpl
+
+        dfe_gibsuf, dfe_gibsmun, dfe_gcbs, dfe_class_fiscal, dfe_gibstotal, dfe_gcbstotal
+
+    Teste cruzado validado: dados gerados pela API → VB6 autorizou a NFC-e na SEFAZ ✅
+
+    Endpoint POST /app/nfcePreparar funcionando.
+
+    Desconto do cabeçalho distribuído proporcionalmente aos itens.
+
+    vProd prioriza total_bruto do item.
+
+    Guard contra status ≥ 100 (não sobrescreve autorizada).
+
+    Timezone Cuiabá aplicada.
+
+4.2 Backend — endpoints ativos
+
+login, vendaAbrir, itemAdicionarSeguro (com FOR UPDATE), verificarStatus, historicoListar/Detalhes, clientesListar/Cadastrar, municipiosBuscar, dadosEmpresa, dadosCaixa, finalizarVenda, relatoriosVendas, nfcePreparar, diagFiscal, diagMetodos, testeFiscal.
+4.3 Electron — funcional
+
+MesaDetalhesModal2, FinalizarVendaModal (cliente, desconto, multi-formas, troco, CPF obrigatório MT > R$1000), pagamentoService.finalizarVenda.
+5. Schemas descobertos (CRÍTICO)
+5.1 nfce_totais
+
+Colunas com prefixo tot_icms_: tot_icms_vBC, tot_icms_vICMS, tot_icms_vProd, tot_icms_vFrete, tot_icms_vSeg, tot_icms_Desc, tot_icms_vOutro, tot_icms_vNF, vTotTrib, etc. Não usar vProd/vDesc/vSeguro.
+5.2 nfce_totais_formapgto
+sql
+
+emp_codigo, numero_nfce, tot_fp_codigo (INT), 
+tot_fp_descricao (VARCHAR 60), tot_fp_valor (DOUBLE), tot_fp_vTroco (DOUBLE)
+
+tot_fp_codigo é INT — 01 → 1, 17 → 17. DLL faz padding.
+5.3 dfe_gibstotal
+sql
+
+empresa, nfe, vDif_UF, vDevTrib_UF, vIBSUF_UF,
+vDif_Mun, vDevTrib_Mun, vIBS_Mun,
+vIBS, vCredPres, vCredPresCondSus, modelo (65), serie (1)
+
+Não existe bc_ibscbs. Todas as colunas vDif/vDevTrib/vCredPres são NOT NULL DEFAULT 0.
+5.4 dfe_gcbstotal
+sql
+
+empresa, nfe, vDif, vDevTrib, vCBS,
+vCredPres, vCredPresCondSus, modelo (65), serie (1)
+
+Não existe bc_ibscbs.
+6. Correções aplicadas em NfceFiscal.php
+
+    ide_indfinal = 1 (era hardcoded 'sim' na SQL, bind órfão)
+
+    isReformaAtiva com IS NOT NULL
+
+    Desconto do cabeçalho distribuído proporcionalmente
+
+    vProd prioriza total_bruto
+
+    Guard contra status ≥ 100
+
+    insc_est normalizado sem pontuação
+
+    nfce_totais: colunas com prefixo tot_icms_
+
+    nfce_totais_formapgto: colunas tot_fp_*
+
+    dfe_gibstotal/dfe_gcbstotal: colunas corretas + modelo=65
+
+    Timezone Cuiabá (index.php + Core.php)
+
+    Homologação: prod_xProd = 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL' (validar formato exato do VB6 — substituição total ou prefixo)
+
+    Debug removido do nfcePreparar
+
+7. Pendências
+7.1 Segunda-feira — PRIORITÁRIO
+
+    □
+
+    .frm do VB6 que emite NFC-e — nomes exatos de:
+
+        CreateObject("...") → ProgID
+
+        Métodos (EnviarNFe? EnviarNFeSincrono? Transmitir?)
+
+        Propriedades (UF, CNPJ, Ambiente, CaminhoCertificado, SenhaCertificado, ConfigurarSoftwareHouse)
+
+        Estrutura de retorno (NFceRetorno->Status, .ChaveNFe, .Protocolo, .Mensagem)
+    □
+
+    DESCRIBE tab_nfce; — confirmar se tem chave_nfce, protocolo_nfce, mensagem_sefaz, data_autorizacao
+    □
+
+    Criar models/NfceTransmissor.php com COM real
+    □
+
+    appController::nfceEmitir — prepara + transmite
+    □
+
+    Patch origem em finalizarVenda — grava em vendas.origem, recebido.origem_recebimento, caixa_movimento.origem
+
+7.2 Ajustes finos (depois da transmissão)
+
+    □
+
+    Comparar XML gerado pela API (via VB6) com XML do VB6 puro — validar campo a campo
+    □
+
+    Confirmar formato exato do xProd em homologação
+    □
+
+    Verificar se natOp também muda em homologação
+    □
+
+    dSaiEnt — verificar se deve ficar em branco (balcão)
+    □
+
+    Corrigir timezone (já feito, mas validar em produção)
+
+7.3 Patches no Electron (fazer junto com a transmissão)
+
+    □
+
+    pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+    □
+
+    FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem: 'FACILIT'
+    □
+
+    MesaDetalhesModal2.jsx: handleSucessoFinalizacao monta detalhesExtras (NFC-e autorizada/pendente) + JSX mescla ...(sucessoModal.detalhesExtras || [])
+
+7.4 Futuras
+
+    □
+
+    Fila/lock para concorrência (componente TecnoSpeed não é thread-safe)
+    □
+
+    TEF
+    □
+
+    Impressão DANFCE
+    □
+
+    Modo contingência
+
+7.5 Investigação
+
+    □
+
+    php -m | findstr com_dotnet — extensão habilitada?
+    □
+
+    regedit → HKEY_CLASSES_ROOT\NFCeX.spdNFCeX — ProgID correto?
+    □
+
+    Formato do certificado (.pfx arquivo vs Windows Store)?
+
+8. Pegadinhas conhecidas
+
+    MesaDetalhesModal.jsx é versão antiga (só alert). Correto é MesaDetalhesModal2.jsx.
+
+    pagamentoService.js é o service (não mesaService.js).
+
+    bindValue órfão (placeholder inexistente na SQL) — PDO ignora silenciosamente. Sempre grep o placeholder na SQL.
+
+    PDO::ERRMODE_EXCEPTION é obrigatório — sem isso, erros de SQL somem.
+
+    tot_fp_codigo é INT — DLL faz padding para 01.
+
+    PowerShell vs cmd: curl é alias de Invoke-WebRequest. Usar curl.exe ou Invoke-WebRequest.
+
+    Quoting em PowerShell: aspas simples ('...'), sem \, comando em uma linha.
+
+    funcionarios.USER é palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+    Divergência item × cabeçalho = rejeição 531/532.
+
+    Componente não é thread-safe.
+
+    Teste cruzado (API + VB6) é a melhor estratégia de validação — VB6 aponta exatamente o que está errado.
+
+9. Instruções para a IA no novo chat
+9.1 Contexto
+
+    Preparação fiscal 100% pronta e validada — não mexer sem motivo.
+
+    Próximo passo: transmissão via COM (DLL TecnoSpeed).
+
+    Usuário tem o VB6 funcionando; pode testar cruzado.
+
+9.2 Primeira ação
+
+Pedir ao usuário:
+
+    .frm do VB6 que emite NFC-e (print ou conteúdo do arquivo)
+
+    Saída de DESCRIBE tab_nfce;
+
+    Saída de php -m | findstr com_dotnet
+
+9.3 Ao receber
+
+Criar models/NfceTransmissor.php com base nos nomes reais e adicionar appController::nfceEmitir.
+9.4 Princípios a manter
+
+    Nunca usar Ambiente=1 (produção) até homologação estar 100%.
+
+    Backup do banco antes de testar NFC-e.
+
+    Validar que nfce_totais.tot_icms_vNF = vendas.total (tolerância R$0,01).
+
+    Nunca inventar nomes de colunas — sempre DESCRIBE primeiro.
+
+    PDO::ERRMODE_EXCEPTION sempre ligado.
+
+    Venda fechada não pode ser desfeita se NFC-e falhar.
+
+9.5 Arquivos a pedir se precisar
+
+NfceFiscal.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js, .frm do VB6, DESCRIBE tab_nfce;.
+9.6 Estado emocional
+
+    Preparação fiscal: 100% concluída e validada ✅
+
+    Transmissão: 0% — só falta descobrir nomes do componente
+
+    Após transmissão: ~1 dia de trabalho para plugar no Electron e testar em homologação

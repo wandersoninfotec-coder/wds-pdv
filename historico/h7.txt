@@ -1,0 +1,267 @@
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial) — PDV, mesas, financeiro, caixa, estoque.
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    Backend: PHP 7.x + PDO + MySQL + Apache (Windows, mesmo servidor do ERP).
+
+    Fiscal: Componente NFC-e TecnoSpeed v6.0 via COM/ActiveX.
+
+    ProgID: NFCex.spdNFCeX (o e minúsculo importa).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado (extension=php_com_dotnet.dll no php.ini).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    nfceconfig.ini: UF=MT, CNPJ=58717761000149, Ambiente=2 (homolog.).
+
+    Pastas TecnoSpeed:
+
+        C:\WDS Comercial\Templates\vm60\Conversor\NFCeDataSets.xml
+
+        C:\WDS Comercial\Esquemas\
+
+        Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+    Software House (licença TecnoSpeed):
+
+        CNPJ: 14234584000174
+
+        Token: 6f8547fdd9dff39473e2cb42a7568907
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; date_default_timezone_set('America/Cuiaba')
+├── core/Core.php                   ; PDO::ERRMODE_EXCEPTION + SET time_zone='-04:00'
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO (XML gerado com sucesso)
+│   └── NfceTransmissor.php         ; ⚠️ BLOQUEIO: certificado
+├── teste_progid.php                ; ⚠️ temporário
+├── teste_props.php                 ; ⚠️ temporário
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+4.1 Preparação fiscal
+
+    NfceFiscal::prepararTudo() popula tab_nfce, nfce_*, dfe_*. Teste cruzado validado: dados da API → VB6 autorizou NFC-e na SEFAZ ✅.
+
+    Correções: ide_indfinal=1, timezone Cuiabá, colunas tot_icms_*, tot_fp_*, dfe_gibstotal/gcbstotal, prod_xProd homologação.
+
+4.2 COM — funcionando
+
+    new COM('NFCex.spdNFCeX') → OK ✅
+
+    Diretórios setados: DiretorioTemplates, DiretorioEsquemas, DiretorioLog, DiretorioLogErro, DiretorioTemporario, DiretorioXmlDestinatario — todos funcionando ✅
+
+    ConfigurarSoftwareHouse('14234584000174', '6f8547fdd9dff39473e2cb42a7568907') → OK ✅
+
+    XML gerado com sucesso (2163 bytes) ✅
+
+4.3 Propriedades do componente confirmadas
+
+    DiretorioTemplates ✅ existe
+
+    DiretorioEsquemas ✅ existe
+
+    DiretorioLog ✅ existe
+
+    DiretorioLogErro ✅ existe
+
+    DiretorioTemporario ✅ existe
+
+    DiretorioXmlDestinatario ✅ existe
+
+4.4 Endpoints ativos
+
+login, vendaAbrir, itemAdicionarSeguro, verificarStatus, historicoListar/Detalhes, clientesListar/Cadastrar, municipiosBuscar, dadosEmpresa, dadosCaixa, finalizarVenda, relatoriosVendas, nfcePreparar, diagFiscal, diagMetodos, testeFiscal, nfceEmitir.
+5. Arquitetura confirmada
+text
+
+[PHP] lê tabelas nfce_* → gera TXT (formato TecnoSpeed)  ✅
+[COM] new COM('NFCex.spdNFCeX')                          ✅
+[COM] ConfigurarSoftwareHouse(cnpj, token)               ✅
+[COM] Seta diretórios (Templates, Esquemas, Log...)      ✅
+[COM] ConverterLoteParaXml(txt, 1, esquema) → XML        ✅ (2163 bytes)
+[COM] AssinarNota(xml) → XML assinado                    ❌ (bloqueio certificado)
+[COM] EnviarNFSincrono('1', xmlAssinado, false)          ❌
+[PHP] parseia cStat/xMotivo/nProt/digVal → tab_nfce      ❌
+
+6. PROBLEMA ATUAL — certificado digital
+Erro
+text
+
+Atenção! Não foi possível carregar o certificado "" devido ao seguinte problema:
+"O certificado não foi encontrado, aguarde alguns minutos.
+Se a situação persistir confirme que o certificado foi informado ao emissor."
+
+Causa
+
+    Componente não lê o .ini (mesma causa dos templates e Software House)
+
+    Precisa setar propriedades de certificado via COM: TipoCertificado, NomeCertificado, Repositorio, Senha, Ambiente
+
+    Hipótese secundária: Apache pode rodar como serviço (SYSTEM) e não enxergar o certificado A1 do usuário instalado no CURRENT_USER_STORE
+
+Valores do .ini para setar
+ini
+
+TipoCertificado=File
+NomeCertificado=CN=TRIGOS MT PAES ARTESANAIS LTDA:58717761000149, OU=videoconferencia, OU=RFB e-CNPJ A1, OU=Secretaria da Receita Federal do Brasil - RFB, OU=03643376000102, L=RONDONOPOLIS, S=MT, O=ICP-Brasil, C=BR
+Repositorio=CURRENT_USER_STORE
+Senha= (vazio)
+Ambiente=2
+
+7. Próximo passo exato
+7.1 Rodar teste_props.php atualizado (foco certificado)
+php
+
+<?php
+header('Content-Type: application/json; charset=utf-8');
+$obj = new COM('NFCex.spdNFCeX');
+$resultado = ['props' => []];
+$props = [
+    'TipoCertificado','NomeCertificado','Certificado','CertificadoDigital',
+    'Repositorio','SenhaCertificado','Senha','PINCODE','PinCode',
+    'ArquivoCertificado','CaminhoCertificado',
+    'Ambiente','UF','CNPJ','VersaoManual','Versao','VersaoSchema',
+    'ValidarEsquema','ValidarEsquemaAntesEnvio',
+    'ArquivoServidoresHom','ArquivoServidoresProd','ConexaoSegura','TimeOut',
+];
+foreach ($props as $p) {
+    try { $resultado['props'][$p] = ['existe'=>true,'valor'=>(string)$obj->$p]; }
+    catch (Throwable $t) { $resultado['props'][$p] = ['existe'=>false]; }
+}
+echo json_encode($resultado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+Abrir: http://192.168.100.67/app_mesas_api/teste_props.php
+7.2 Hipótese direta (testar em paralelo)
+
+Adicionar no inicializarCom() após ConfigurarSoftwareHouse:
+php
+
+$this->com->Ambiente        = 2;
+$this->com->TipoCertificado = 'File';
+$this->com->NomeCertificado = 'CN=TRIGOS MT PAES ARTESANAIS LTDA:58717761000149, OU=videoconferencia, OU=RFB e-CNPJ A1, OU=Secretaria da Receita Federal do Brasil - RFB, OU=03643376000102, L=RONDONOPOLIS, S=MT, O=ICP-Brasil, C=BR';
+$this->com->Repositorio     = 'CURRENT_USER_STORE';
+// $this->com->Senha = '';   // se A1 não tem senha
+
+7.3 Alternativa — copiar .ini para o Apache
+powershell
+
+Copy-Item "C:\WDS Comercial\nfceconfig.ini" -Destination "C:\xampp\apache\bin\nfceconfig.ini" -Force
+
+Reiniciar Apache e testar. Se funcionar, remover os set de propriedades do código.
+7.4 Verificar como o Apache roda
+
+services.msc → procurar Apache2.4 ou XAMPP → olhar "Fazer logon como". Se for Local System, o certificado A1 do usuário não será visto. Soluções:
+
+    Configurar o serviço do Apache para rodar como o usuário que tem o certificado
+
+    Ou instalar o certificado no store do Local System
+
+7.5 Depois de destravar
+
+    Aplicar patches no Electron:
+
+        pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+
+        FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem:'FACILIT'
+
+        MesaDetalhesModal2.jsx: mesclar detalhesExtras (NFC-e) no SuccessModal
+
+    Fix do vendedor:
+
+        login retornar codigoFuncionario
+
+        MesaDetalhesModal2 usar user?.codigoFuncionario || 1
+
+        vendaAbrir rejeitar vendedor<=0
+
+    Patch de origem em finalizarVenda
+
+    Remover debug_raw/debug_method do nfcePreparar
+
+    Apagar teste_progid.php e teste_props.php
+
+7.6 Pendências futuras
+
+    Fila/lock para concorrência (componente não é thread-safe)
+
+    Reforma Tributária por item no TXT (está simplificada — completar se SEFAZ rejeitar)
+
+    TEF: não iniciado
+
+8. Pegadinhas conhecidas
+
+    ProgID é NFCex.spdNFCeX (com e minúsculo).
+
+    Componente NÃO lê o .ini — todos os valores precisam ser setados via propriedade (Templates, Esquemas, Software House, Certificado, Ambiente).
+
+    extension=com_dotnet em PHP antigo precisa ser extension=php_com_dotnet.dll.
+
+    ConfigurarSoftwareHouse obrigatório: 14234584000174 / 6f8547fdd9dff39473e2cb42a7568907.
+
+    ConverterLoteParaXml aceita string, não arquivo.
+
+    lkTXTDataSet = 1.
+
+    Apache pode rodar como serviço e não enxergar o certificado do usuário.
+
+    PDO::ERRMODE_EXCEPTION obrigatório.
+
+    PowerShell: aspas simples, comando em uma linha, usar curl.exe.
+
+    MesaDetalhesModal.jsx (antigo) tem só alert — usar MesaDetalhesModal2.jsx.
+
+    pagamentoService.js (não mesaService.js).
+
+    Divergência item × cabeçalho → rejeição 531/532.
+
+    funcionarios.USER é palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+    VB6 e PHP usam as mesmas pastas — cuidado com concorrência.
+
+9. Instruções para a IA no novo chat
+
+    Preparação fiscal e geração de TXT/XML prontas e validadas.
+
+    Componente COM instancia e gera XML ✅ — bloqueio apenas no certificado.
+
+    Primeira ação: pedir resultado do teste_props.php (foco certificado) e/ou como o Apache roda (serviço vs console).
+
+    Aplicar hipótese direta (setar TipoCertificado, NomeCertificado, Repositorio, Ambiente) e testar.
+
+    Se não resolver, copiar nfceconfig.ini para C:\xampp\apache\bin\ e testar.
+
+    Se ainda falhar, investigar permissão do usuário do Apache no certificado A1.
+
+    Não inventar nome de propriedade — rodar teste_props.php primeiro.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar dos arquivos-chave, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.

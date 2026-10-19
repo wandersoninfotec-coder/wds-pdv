@@ -1,0 +1,218 @@
+/* src/components/SuccessModal.css */
+
+:root {
+  --tema-cor: #27ae60;
+  --tema-cor-suave: #eaf9f1;
+}
+
+.suc-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+  animation: sucFadeIn 0.2s ease;
+}
+
+@keyframes sucFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.suc-content {
+  background-color: #ffffff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  padding: 35px 30px 25px;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  animation: sucPopIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes sucPopIn {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ============ ÍCONE CIRCULAR (tema) ============ */
+.suc-icon-wrap {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background-color: var(--tema-cor-suave, #eaf9f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 22px;
+  animation: sucIconPop 0.5s ease 0.15s both;
+}
+
+@keyframes sucIconPop {
+  0% { transform: scale(0); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.suc-icon-check {
+  font-size: 50px;
+  line-height: 1;
+  color: var(--tema-cor, #27ae60);
+  font-weight: 700;
+  animation: sucCheckDraw 0.4s ease 0.4s both;
+}
+
+@keyframes sucCheckDraw {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* ============ TÍTULO ============ */
+.suc-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 6px;
+}
+
+.suc-subtitle {
+  font-size: 14px;
+  color: #95a5a6;
+  margin-bottom: 25px;
+}
+
+/* ============ DETALHES ============ */
+.suc-detalhes {
+  background-color: #f7f9fc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.suc-detalhe-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.suc-detalhe-linha + .suc-detalhe-linha {
+  border-top: 1px solid #eaeef3;
+  margin-top: 6px;
+  padding-top: 12px;
+}
+
+.suc-detalhe-label {
+  font-size: 13px;
+  color: #95a5a6;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.suc-detalhe-valor {
+  font-size: 16px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.suc-detalhe-valor.destaque {
+  font-size: 22px;
+  color: var(--tema-cor, #27ae60);
+}
+
+/* Troco — valor informativo, mantém azul para diferenciar do total */
+.suc-detalhe-valor.troco {
+  color: #3498db;
+}
+
+/* ============ BOTÃO PRINCIPAL (tema) ============ */
+.suc-btn {
+  width: 100%;
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--tema-cor, #27ae60);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.suc-btn:hover {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.suc-btn:active {
+  transform: translateY(0);
+}
+
+/* ============ BARRA DE PROGRESSO (tema) ============ */
+.suc-progress {
+  height: 3px;
+  background-color: var(--tema-cor-suave, #eaf9f1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.suc-progress-bar {
+  height: 100%;
+  background-color: var(--tema-cor, #27ae60);
+  animation: sucProgress var(--auto-fechar-ms, 3000ms) linear forwards;
+}
+
+@keyframes sucProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* ============ BOTÃO IMPRIMIR (tema) ============ */
+.suc-children {
+  margin: 0 0 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suc-btn-imprimir {
+  width: 100%;
+  padding: 13px 15px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: var(--tema-cor, #3498db);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.suc-btn-imprimir:hover:not(:disabled) {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.suc-btn-imprimir:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.suc-btn-imprimir:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}

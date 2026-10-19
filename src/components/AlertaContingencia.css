@@ -1,0 +1,65 @@
+/* src/components/AlertaContingencia.css */
+.ac-faixa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.ac-faixa-vermelha {
+  background: #fdecea;
+  color: #c0392b;
+  border-bottom-color: #e74c3c;
+}
+
+.ac-faixa-amarela {
+  background: #fef3e5;
+  color: #b9770e;
+  border-bottom-color: #f39c12;
+}
+
+.ac-icone {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.ac-texto {
+  flex: 1;
+}
+
+.ac-motivo {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.75;
+  max-width: 40%;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ac-btn-reprocessar {
+  background: #f39c12;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ac-btn-reprocessar:hover:not(:disabled) {
+  background: #e67e22;
+}
+
+.ac-btn-reprocessar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

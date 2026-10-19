@@ -1,0 +1,332 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Sexta-feira, 02/Outubro/2026 (fim do dia)
+Status: 🎉 Emissão + contingência + alerta + impressão + TELA DE NOTAS FISCAIS com lista, cancelamento, inutilização e diagnóstico. Frontend ainda sem Electron (React + Vite).
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Vite) — PDV desktop, sem Electron ainda.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF Sitef.
+
+2. Stack/ferramentas
+Backend
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado (charset latin1).
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    Log PHP: C:\xampp\php\logs\php_error_log.
+
+Frontend
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20.
+
+    Pasta: D:\ANDROID\wds-pdv.
+
+    src/main.jsx = entry point do React (não é main.js do Electron).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\, Esquemas\vm60\
+
+    nfceServidoresHom.ini, nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+pnfce_serie                    = 1
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── controllers/appController.php
+├── core/Core.php                   ; PDO charset=latin1; roteamento call_user_func_array
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   ├── NfceTransmissor.php         ; ✅ + cancelar() + inutilizar()
+│   └── Produto.php                 ; ✅ VALIDADO
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+D:\ANDROID\wds-pdv\
+├── src/
+│   ├── App.jsx                     ; ✅ + rota /notas
+│   ├── pages/
+│   │   ├── DashboardPage.jsx       ; ✅ + botão "Notas Fiscais"
+│   │   ├── NotasPage.jsx           ; ✅ NOVO
+│   │   └── NotasPage.css           ; ✅ NOVO
+│   ├── components/
+│   │   ├── AlertaContingencia.jsx  ; ✅
+│   │   ├── MesaDetalhesModal2.jsx  ; ✅
+│   │   ├── FinalizarVendaModal.jsx ; ✅
+│   │   ├── SuccessModal.jsx        ; ✅ com children
+│   │   ├── BotaoImprimirCupom.jsx  ; ✅
+│   │   ├── NotaDetalhesModal.jsx   ; ✅ NOVO
+│   │   ├── NotaDetalhesModal.css   ; ✅ NOVO
+│   │   ├── CancelarNotaModal.jsx   ; ✅ NOVO
+│   │   ├── CancelarNotaModal.css   ; ✅ NOVO
+│   │   ├── InutilizarModal.jsx     ; ✅ NOVO
+│   │   └── InutilizarModal.css     ; ✅ NOVO
+│   └── services/
+│       ├── pagamentoService.js     ; ✅
+│       ├── impressaoService.js     ; ✅
+│       └── notaService.js          ; ✅ NOVO (listar, detalhes, diagnostico, cancelar, inutilizar)
+
+4. O que já está pronto/validado
+Backend ✅
+
+    COM TecnoSpeed: instancia, configura, gera XML, assina, transmite
+
+    NfceTransmissor:
+
+        detectarStatusSefaz() — consulta StatusDoServico
+
+        transmitir($empresa, $numeroNfce, $caminhoTxt, $contingencia = false)
+
+        transmitirXmlAssinado(...) — reprocessamento
+
+        salvarXmlAutorizado(...) — monta nfeProc
+
+        cancelar($empresa, $numeroNfce, $justificativa, $usuario) — novo
+
+        inutilizar($empresa, $numeroIni, $numeroFim, $justificativa, $serie, $ano) — novo
+
+Endpoints ✅
+Endpoint	Função	Status
+POST /app/finalizarVenda	Fecha venda	✅
+POST /app/nfcePreparar	Prepara fiscais	✅
+POST /app/nfceEmitir	Prepara + transmite (fallback contingência)	✅
+POST /app/nfceStatusSefaz	Status SEFAZ + pendentes	✅
+POST /app/nfceReprocessarContingencia	Transmite contingências	✅
+POST /app/nfceDadosImpressao	Dados do cupom	✅
+POST /app/nfceListar	Lista NFC-e com filtros	✅ NOVO
+POST /app/nfceCancelar	Cancela autorizada	✅ NOVO
+POST /app/nfceInutilizar	Inutiliza faixa	✅ NOVO
+POST /app/nfceDiagnostico	cStat → dica	✅ NOVO
+Frontend ✅
+
+    Dashboard → Ações Rápidas → "Notas Fiscais" → rota /notas
+
+    NotasPage: filtros (período, status, busca por nº/cliente/chave) + tabela + status colorido
+
+    Vazio hoje → botão "Ver últimos 7 dias"
+
+    NotaDetalhesModal: chave, protocolo, cliente, itens, formas, ações contextuais
+
+    Ações por status:
+
+        3 Autorizada → Reimprimir + Cancelar
+
+        4 Rejeitada → Diagnóstico (cStat + categoria + dica) + Inutilizar
+
+        8 Contingência → Reimprimir (provisório)
+
+    CancelarNotaModal: justificativa (mín. 15 chars) + aviso irreversível
+
+    InutilizarModal: faixa (nº inicial/final/série) + justificativa
+
+Métodos VB6 → parâmetros PHP
+vb
+
+' Cancelamento
+NFCe.CancelarNF(chave, protocolo, justificativa, dhEvento, 1, fuso, nroLote)
+
+' Inutilização
+NFCe.InutilizarNF('', ano2dig, cnpj, '65', '1', numIni, numFim, justificativa)
+
+Mapa de status tab_nfce.status_nfce
+Código	Label	Cor
+0	Digitada	#95a5a6
+1	Validada	#3498db
+2	Processando	#f39c12
+3	Autorizado	#27ae60
+4	Rejeitado	#e74c3c
+5	Denegada	#c0392b
+6	Cancelada	#7f8c8d
+7	Inutilizada	#95a5a6
+8	Contingência	#e67e22
+Códigos cStat mapeados no diagnóstico
+cStat	Categoria	Ação
+539 / 204	Duplicidade	nenhuma / inutilizar
+215 / 402	Schema/Encoding	corrigir
+716	Consumidor Final	corrigir
+1026 / 1027	Reforma Tributária	cadastrar_ncm
+778	Cadastro NCM	cadastrar_ncm
+999	Genérico	consultar
+5. Índices de performance (importante)
+
+Criar se ainda não existirem:
+sql
+
+CREATE INDEX idx_tab_nfce_emp_data ON tab_nfce (emp_codigo, data_emissao, numero_nfce);
+CREATE INDEX idx_nfce_totais_emp_num ON nfce_totais (emp_codigo, numero_nfce);
+CREATE INDEX idx_vendas_emp_nfce ON vendas (empresa, numero_nfce);
+CREATE INDEX idx_nfce_ident_emp_num ON nfce_identificacao (emp_codigo, numero_nfce);
+
+6. Query de listagem (corrigida)
+sql
+
+SELECT t.numero_nfce, ni.ide_serie_documento AS serie, t.status_nfce,
+       t.chave_acesso, t.nro_protocolo_autorizacao,
+       t.data_emissao, t.hora_emissao,
+       COALESCE(tot.tot_icms_vNF, 0) AS total,
+       COALESCE(v.cliente, 1) AS codigocliente,
+       COALESCE(c.razao, 'CONSUMIDOR FINAL') AS nome
+FROM tab_nfce t
+LEFT JOIN nfce_identificacao ni ON ni.emp_codigo = t.emp_codigo AND ni.numero_nfce = t.numero_nfce
+LEFT JOIN nfce_totais tot ON tot.emp_codigo = t.emp_codigo AND tot.numero_nfce = t.numero_nfce
+LEFT JOIN vendas v ON v.empresa = t.emp_codigo AND v.numero_nfce = t.numero_nfce
+LEFT JOIN clientes c ON c.empresa = v.empresa AND c.codigo = v.cliente
+WHERE t.emp_codigo = :empresa
+  AND t.data_emissao BETWEEN :data_ini AND :data_fim
+ORDER BY t.numero_nfce DESC
+LIMIT 200
+
+Bug original identificado: AND tot.numero_nfce sem = causava produto cartesiano → lentidão. Sempre coluna = coluna.
+7. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf, pibsmun (minúsculo); vIBSUF (maiúsculo). Sempre SHOW COLUMNS.
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    🔴 PHP 7.1.9 — catch (Throwable $t) cobre Error/TypeError.
+
+    🔴 json_encode falha silenciosamente com bytes inválidos → usar JSON_PARTIAL_OUTPUT_ON_ERROR.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> antes de assinar.
+
+    SEFAZ reporta erros pelo protNFe.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório mesmo zerado.
+
+    Prioridade classificação: produto → NCM → padrão.
+
+    StatusDoServico (não StatusServico).
+
+    Projeto é React + Vite — sem Electron.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    vendas.vendedor = funcionarios.codigo (não usuário).
+
+    MySQL 4.1 — sem IF NOT EXISTS em índices, sem CTE, sem window functions.
+
+8. Roadmap
+Prioridade	Item	Status
+🟡 1	Testar a tela de notas + cancelamento + inutilização	Próximo
+🟡 2	Painel de NCMs não cadastrados	Planejado
+🟡 3	Job automático de inutilização (Task Scheduler)	Planejado
+🟢 4	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 5	Empacotar Electron + IPC (impressão silenciosa)	Pendente
+🟢 6	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	Cancelamento (esta sprint)	✅ concluído
+⚪	TEF Sitef	Depois
+9. Próximos passos detalhados
+9.1 Job automático de inutilização
+
+    Escopo: NFC-e rejeitadas com mais de X dias sem correção
+
+    Frequência: 1x/dia (Task Scheduler)
+
+    Endpoint: novo /app/nfceInutilizarPendentes ou chamar /app/nfceInutilizar para cada uma
+
+    Decisões pendentes:
+
+        Carência: 7, 15 ou 30 dias?
+
+        Escopo: só rejeitadas, ou também números pulados?
+
+        Abortar se SEFAZ offline?
+
+9.2 Painel de NCMs
+
+    Endpoint novo: /app/ncmPendentes — lista NCMs de produtos que não estão em dfe_ncm_nbs_ibs_cbs
+
+    Frontend: tela simples com lista + ação de cadastrar
+
+    Alerta: quando uma NFC-e cai no padrão por falta de cadastro
+
+9.3 Tela de notas — refinamentos
+
+    Paginação (se passar de 200)
+
+    Exportar CSV
+
+    Filtro por cliente
+
+    Ações em lote (cancelar várias)
+
+10. Instruções para a IA no novo chat
+
+    Sistema 100% funcional: emissão, multi-itens, NCM, contingência, alerta, impressão, tela de notas com cancelamento e inutilização.
+
+    Próximas prioridades: job automático de inutilização, painel de NCMs, e-mail, Electron.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas em código.
+
+    SEMPRE normalizar chaves de arrays PDO (array_change_key_case).
+
+    SEMPRE catch (Throwable $t) em métodos críticos.
+
+    SEMPRE JSON_PARTIAL_OUTPUT_ON_ERROR quando payload tiver dados de banco legado.
+
+    SEMPRE coluna = coluna em JOIN (nunca AND coluna solto).
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, Produto.php, appController.php, NotasPage.jsx, NotaDetalhesModal.jsx, CancelarNotaModal.jsx, InutilizarModal.jsx, notaService.js, impressaoService.js, pagamentoService.js.
+
+11. Contador
+
+Mensagens desde o último resumo (v8.0): 10. Próximo resumo: mensagem 10ª a partir de agora.
+
+Fim do documento.
+Última atualização: 02/Outubro/2026 — v9.0

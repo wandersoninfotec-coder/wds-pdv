@@ -1,0 +1,287 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Quarta-feira, 30/Setembro/2026 (fim do dia)
+Status: 🎉🎉🎉 EMISSÃO COMPLETA E INTEGRADA! Backend + Electron + persistência (banco + disco) + frontend mostrando status autorizado. Próximas frentes: contingência, impressão/e-mail, tela de notas.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+    Destinatário: C:\WDS Comercial\NFCeGerada\XmlDestinatario\<chave>-nfce.xml
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO charset=latin1
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   ├── NfceTransmissor.php         ; ✅ VALIDADO
+│   └── Produto.php                 ; ✅ VALIDADO
+├── teste_*.php                     ; temporários (apagar)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/
+│   ├── MesaDetalhesModal2.jsx      ; ✅ mostra NFC-e no SuccessModal
+│   ├── FinalizarVendaModal.jsx     ; ✅ chama finalizarEEmitir
+│   └── SuccessModal.jsx            ; ✅ renderiza detalhes extras
+└── services/pagamentoService.js    ; ✅ emitirNfce + finalizarEEmitir
+
+4. O que já está pronto/validado
+Backend PHP — 100% funcional ✅
+
+    COM TecnoSpeed: instancia, configura, gera XML, assina, transmite ✅
+
+    NfceFiscal::prepararTudo — popula nfce_* e dfe_* corretamente ✅
+
+    NfceGeradorTxt — gera TXT com todas as tags (inclusive IBSCBS por item + total) ✅
+
+    NfceTransmissor — tratarRetorno lê protNFe, salva XML em disco (pasta do dia + XmlDestinatario) e no banco ✅
+
+    PDO com charset=latin1 ✅
+
+    sanitizarAscii, fmtDec com casas fixas ✅
+
+    indFinal=1, alíquotas 2026 (0,10/0,00/0,90) ✅
+
+    Classificação fiscal por prioridade: produto → NCM → padrão ✅
+
+    XML autorizado (nfeProc) montado = <NFe assinado> + <protNFe> ✅
+
+Electron — 100% funcional ✅
+
+    pagamentoService.emitirNfce + finalizarEEmitir ✅
+
+    FinalizarVendaModal — chama finalizarEEmitir, devolve {...venda, nfce} ✅
+
+    MesaDetalhesModal2 — monta detalhesExtras (NFC-e + protocolo + chave) ✅
+
+    SuccessModal — exibe "✅ Autorizada (#XXXX)" + protocolo + chave ✅
+
+Endpoint nfceEmitir — retorno completo ✅
+json
+
+{
+  "sucesso": true,
+  "numero_nfce": 6037,
+  "serie": 1,
+  "chave": "5126...",
+  "protocolo": "15126...",
+  "cStat": "100",
+  "xMotivo": "Autorizado o uso da NF-e",
+  "ambiente": 2,
+  "autorizada_em": "2026-09-30 14:50:00",
+  "caminho_txt": "...",
+  "transmissao": { ... },
+  "nfce": { "sucesso": true, "numero_nfce": 6037, "chave": "...", "protocolo": "...", "cStat": "100", "mensagem": "..." }
+}
+
+Persistência ✅
+
+    tab_nfce.xml_assinado — XML assinado
+
+    tab_nfce.xml_autorizado — nfeProc (destinatário)
+
+    tab_nfce.xml_autorizado_retorno — retorno cru da SEFAZ
+
+    Disco: -assinado.xml, -autorizado.xml, -autorizado_ret.xml + XmlDestinatario\<chave>-nfce.xml
+
+Casos validados
+Cenário	NFC-e	Status
+1 item, classificação padrão	6023, 6024, 6029	✅ Autorizada
+Multi-itens	6035	✅ Autorizada
+NCM específico (redução 100%)	6032	✅ Autorizada
+Fluxo completo via Electron	6036	✅ Autorizada + XML + frontend
+Erros cStat resolvidos
+cStat	Motivo	Solução
+402	Encoding	PDO charset + sanitizarAscii
+215	vPIS 1 casa	fmtDec corrigido
+716	indFinal=0	forçado para 1
+1026	IBS UF ≠ 0,1%	forçar mínimo 2026
+1026	NCM sem alíquota	buscarRtcPorNcm corrigido
+(rej)	IBSCBSTot ausente	gravar totais sempre
+5. Tabelas-chave do RTC (Reforma Tributária)
+
+    dfe_ncm_nbs_ibs_cbs → NCM → cst_ibs_cbs + cclass_trib (com vigência)
+
+    tab_tipooperacao_rtc → alíquotas por CST_IBS_CBS + cclasstrib (não por id)
+
+    Typos do schema (atenção):
+
+        terminino_vigencia_ncm_nbs_ibs_cbs (com "no")
+
+        dfe_gibsuf.pibsuf (minúsculo)
+
+        dfe_gibsuf.vIBSUF (maiúsculo)
+
+    Prioridade de classificação: produto → NCM → padrão
+
+6. Próximas frentes (roadmap)
+Prioridade	Item	Status
+🟡 1	Contingência (tpEmis=9)	Pendente
+🟢 2	Impressão + e-mail (PHPMailer)	Pendente
+🟢 3	Tela de notas emitidas	Pendente
+🟢 4	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	Cancelamento	Sprint separada
+⚪	TEF Sitef	Próxima sprint
+6.1 Contingência
+
+    tpEmis=9, xJust (mín. 15 chars), dhCont
+
+    tab_nfce.status_nfce = 8 durante, vira 3 quando autorizada
+
+    Prazo: até o próximo dia útil
+
+    A decidir: gatilho automático vs manual; justificativa fixa vs variável; job de reprocessamento (Task Scheduler → endpoint)
+
+6.2 Impressão + e-mail
+
+    Impressão: componente TecnoSpeed (ImprimirDANFCE + Templates\vm60\Danfce\retrato.rtm)
+
+    E-mail: PHPMailer + SMTP em param_sistema; anexos XML + PDF
+
+    Gatilho: cupom físico sempre; e-mail sob demanda
+
+    A decidir: QR Code (backend próprio ou método do componente)
+
+6.3 Tela de notas emitidas
+
+Colunas: número/série, data, cliente, total, status (cor), chave.
+Ações: reimprimir, baixar XML, ver detalhes.
+Fonte: tab_nfce JOIN vendas JOIN clientes.
+6.4 Fix do vendedor (bug pendente)
+
+    login retornar codigoFuncionario
+
+    MesaDetalhesModal2 usar user?.codigoFuncionario || 1
+
+    vendaAbrir rejeitar vendedor <= 0
+
+6.5 Refatorações
+
+    inicializarCom() — carregar CNPJ/UF/certificado do nfceconfig.ini + banco
+
+    Apagar teste_*.php
+
+    Remover debug_raw do nfcePreparar
+
+    Remover log duplicado no processarReformaTributaria
+
+7. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf (minúsculo), vIBSUF (maiúsculo), pibsmun (minúsculo). Sempre SHOW COLUMNS ou array_change_key_case.
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO (não conteúdo).
+
+    NÃO adicionar <?xml?> no XML antes do AssinarNota.
+
+    SEFAZ reporta erros pelo protNFe — sempre ler de lá.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório se houver IBS/CBS nos itens — mesmo zerado.
+
+    Prioridade de classificação: produto → NCM → padrão.
+
+    XML autorizado (nfeProc) = <NFe assinado> + <protNFe> — a SEFAZ não devolve <NFe>.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+8. Instruções para a IA no novo chat
+
+    Sistema 100% funcional end-to-end: preparação → geração TXT → transmissão → autorização → persistência → frontend. ✅
+
+    Não refatorar NfceFiscal, NfceGeradorTxt, NfceTransmissor, Produto sem motivo — estão validados.
+
+    Próxima prioridade: contingência (após decisões do usuário) ou impressão/e-mail.
+
+    Manter comunicação com o usuário antes de mexer em código sensível.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> no XML antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas em código.
+
+    SEMPRE normalizar chaves de arrays PDO (array_change_key_case).
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, Produto.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Estado: 🎉 Backend + Frontend integrados! Foco em contingência, impressão e features de produção.
+
+Fim do documento.
+Última atualização: 30/Setembro/2026 — v5.0

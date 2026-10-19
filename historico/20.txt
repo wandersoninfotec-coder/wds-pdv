@@ -1,0 +1,321 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Quarta-feira, 30/Setembro/2026 (fim do dia)
+Status: 🎉 EMISSÃO COMPLETA + CONTINGÊNCIA AUTOMÁTICA! Backend + Electron + persistência + contingência (automática + reprocessamento) funcionando. Próximas frentes: alerta no frontend, reprocessamento agendado, impressão/e-mail, tela de notas.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+    Destinatário: C:\WDS Comercial\NFCeGerada\XmlDestinatario\<chave>-nfce.xml
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO charset=latin1
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   ├── NfceTransmissor.php         ; ✅ VALIDADO (com contingência)
+│   └── Produto.php                 ; ✅ VALIDADO
+├── teste_*.php                     ; temporários (apagar)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/
+│   ├── MesaDetalhesModal2.jsx      ; ✅ mostra NFC-e no SuccessModal
+│   ├── FinalizarVendaModal.jsx     ; ✅ chama finalizarEEmitir
+│   └── SuccessModal.jsx            ; ✅ renderiza detalhes extras
+└── services/pagamentoService.js    ; ✅ emitirNfce + finalizarEEmitir
+
+4. O que já está pronto/validado
+Backend PHP ✅
+
+    COM TecnoSpeed: instancia, configura, gera XML, assina, transmite
+
+    NfceFiscal::prepararTudo($empresa, $venda, $tipoOperacao, $tipoEmissaoForcado) — aceita tpEmis=9 (contingência) e injeta dhCont + xJust
+
+    NfceGeradorTxt — gera TXT completo com todas as tags
+
+    NfceTransmissor:
+
+        detectarStatusSefaz() — consulta StatusDoServico, retorna {online, cStat, xMotivo, tMed, mensagem}
+
+        transmitir($empresa, $numeroNfce, $caminhoTxt, $contingencia = false) — modo normal e contingência
+
+        transmitirXmlAssinado($empresa, $numeroNfce, $xmlAssinado) — reprocessamento
+
+        salvarXmlAutorizado() — monta nfeProc (<NFe> + <protNFe>), salva em disco (2 pastas) e no banco (tab_nfce.xml_autorizado)
+
+    PDO charset=latin1, sanitizarAscii, fmtDec fixo ✅
+
+    indFinal=1, alíquotas 2026 (0,10/0,00/0,90) ✅
+
+    Classificação fiscal por prioridade: produto → NCM → padrão ✅
+
+Endpoints ativos ✅
+Endpoint	Função
+POST /app/finalizarVenda	Fecha venda (grava receber/recebido/caixa)
+POST /app/nfcePreparar	Prepara tabelas fiscais
+POST /app/nfceEmitir	Prepara + gera TXT + transmite (com fallback contingência automática)
+POST /app/nfceStatusSefaz	Consulta status SEFAZ + pendentes contingência
+POST /app/nfceReprocessarContingencia	Transmite NFC-e em contingência (status 8 → 3)
+Endpoint nfceEmitir — comportamento ✅
+
+    Consulta detectarStatusSefaz()
+
+    Se online: prepara (tpEmis=1), gera TXT, transmite → status 3 (autorizada)
+
+    Se offline: prepara com tpEmis=9, gera TXT, assina mas NÃO transmite → status 8 (contingência)
+
+    Suporta parâmetro forcar_contingencia: true para testes
+
+Endpoint nfceReprocessarContingencia ✅
+
+    Verifica status SEFAZ (aborta se ainda offline)
+
+    Busca tab_nfce WHERE status_nfce = 8 (limite configurável)
+
+    Para cada: chama transmitirXmlAssinado() → status 3 (autorizada) ou 4 (rejeitada)
+
+    Retorna {total, autorizadas, rejeitadas, detalhes}
+
+Electron ✅
+
+    pagamentoService.emitirNfce + finalizarEEmitir
+
+    FinalizarVendaModal chama finalizarEEmitir + passa origem: 'FACILIT'
+
+    MesaDetalhesModal2 monta detalhesExtras (NFC-e + protocolo + chave)
+
+    SuccessModal exibe "✅ Autorizada (#XXXX)" + protocolo + chave
+
+Persistência ✅
+
+    tab_nfce.xml_assinado — XML assinado
+
+    tab_nfce.xml_autorizado — nfeProc (destinatário)
+
+    tab_nfce.xml_autorizado_retorno — retorno cru SEFAZ
+
+    tab_nfce.caminho_txt
+
+    Disco: -assinado.xml, -autorizado.xml, -autorizado_ret.xml + XmlDestinatario\<chave>-nfce.xml
+
+Casos validados
+Cenário	NFC-e	Status
+1 item, classificação padrão	6023, 6024, 6029	✅ Autorizada
+Multi-itens	6035	✅ Autorizada
+NCM específico (redução 100%)	6032	✅ Autorizada
+Fluxo completo via Electron	6036	✅ Autorizada
+Contingência automática + reprocessamento	(testado)	✅ Autorizada
+Erros cStat resolvidos
+cStat	Motivo	Solução
+402	Encoding	PDO charset + sanitizarAscii
+215	vPIS 1 casa	fmtDec corrigido
+716	indFinal=0	forçado para 1
+1026	IBS UF ≠ 0,1% (2026)	forçar mínimo
+1026	NCM sem alíquota	buscarRtcPorNcm + case PDO
+(rej)	IBSCBSTot ausente	gravar totais sempre
+108	SEFAZ paralisada	contingência automática
+5. Tabelas-chave do RTC (Reforma Tributária)
+
+    dfe_ncm_nbs_ibs_cbs → NCM → cst_ibs_cbs + cclass_trib (com vigência)
+
+    tab_tipooperacao_rtc → alíquotas por CST_IBS_CBS + cclasstrib
+
+    Typos do schema (atenção):
+
+        terminino_vigencia_ncm_nbs_ibs_cbs (com "no")
+
+        dfe_gibsuf.pibsuf (minúsculo), vIBSUF (maiúsculo)
+
+        dfe_gibsmun.pibsmun (minúsculo)
+
+    Prioridade de classificação: produto → NCM → padrão
+
+6. Status da SEFAZ — cStat de referência
+cStat	Significado
+107	Serviço em Operação → online
+108	Serviço Paralisado Momentaneamente → contingência
+109	Serviço Paralisado sem Previsão → contingência
+7. Próximas frentes (roadmap)
+Prioridade	Item	Status
+🟡 1	Alerta de contingência no topo do PDV	Próximo
+🟡 2	Botão manual de reprocessamento na tela de notas	Pendente
+🟡 3	Task Scheduler → job de reprocessamento automático	Pendente
+🟢 4	Impressão (componente TecnoSpeed ImprimirDANFCE)	Pendente
+🟢 5	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 6	Tela de notas emitidas	Pendente
+🟢 7	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	Cancelamento	Sprint separada
+⚪	TEF Sitef	Próxima sprint
+7.1 Alerta de contingência (próximo)
+
+Frontend deve:
+
+    Consultar POST /app/nfceStatusSefaz a cada 5 minutos
+
+    Mostrar faixa vermelha no topo do PDV quando online=false ou contingencia_pendentes > 0
+
+    Exibir: "⚠️ SEFAZ offline — NFC-e em contingência. X notas pendentes."
+
+    Botão "Reprocessar agora" quando online=true e pendentes > 0
+
+7.2 Reprocessamento agendado
+
+    Windows Task Scheduler → chama POST /app/nfceReprocessarContingencia às 6h (e talvez 12h, 18h)
+
+    Endpoint já existe e funciona
+
+    Só precisa criar a tarefa agendada no Windows
+
+7.3 Impressão (aguardando decisão)
+
+    Recomendação: componente TecnoSpeed ImprimirDANFCE + template Templates\vm60\Danfce\retrato.rtm
+
+    QR Code: método do componente (se existir) ou geração própria
+
+    A decidir: impressão automática vs botão manual
+
+7.4 E-mail
+
+    PHPMailer + SMTP configurado em param_sistema
+
+    Anexos: XML autorizado + PDF do DANFCE
+
+    Gatilho: sob demanda
+
+7.5 Tela de notas emitidas
+
+    Fonte: tab_nfce JOIN vendas JOIN clientes
+
+    Colunas: número/série, data, cliente, total, status (cor), chave
+
+    Ações: reimprimir, baixar XML, ver detalhes, reprocessar (se status 8)
+
+7.6 TEF Sitef (próxima sprint)
+
+    Cliente Sitef 32-bit → Electron 32-bit ou serviço intermediário
+
+    Pacote: Sitef via json->dll-> +Agente+CliSiTef+Windows.zip
+
+8. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf (minúsculo), vIBSUF (maiúsculo), pibsmun (minúsculo). Sempre SHOW COLUMNS ou array_change_key_case.
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> no XML antes do AssinarNota.
+
+    SEFAZ reporta erros pelo protNFe.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório se houver IBS/CBS nos itens — mesmo zerado.
+
+    Prioridade classificação: produto → NCM → padrão.
+
+    XML autorizado (nfeProc) = <NFe assinado> + <protNFe> — SEFAZ não devolve <NFe>.
+
+    StatusDoServico (não StatusServico) — propriedade, não método.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+9. Instruções para a IA no novo chat
+
+    Sistema 100% funcional: emissão normal, multi-itens, NCM, contingência automática, reprocessamento. ✅
+
+    Não refatorar NfceFiscal, NfceGeradorTxt, NfceTransmissor, Produto sem motivo — estão validados.
+
+    Próxima prioridade: alerta de contingência no frontend + Task Scheduler + impressão/e-mail.
+
+    Manter comunicação com o usuário antes de mexer em código sensível.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> no XML antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas em código.
+
+    SEMPRE normalizar chaves de arrays PDO (array_change_key_case).
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, Produto.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Estado: 🎉 Backend completo + Frontend integrado! Foco em alerta de contingência, automação de reprocessamento, impressão e tela de notas.
+
+Fim do documento.
+Última atualização: 30/Setembro/2026 — v5.1

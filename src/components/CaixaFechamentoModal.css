@@ -1,0 +1,59 @@
+.cfm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3200; padding: 20px;
+}
+.cfm-content {
+  background: #fff; border-radius: 16px;
+  width: 100%; max-width: 440px; padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.cfm-header { text-align: center; margin-bottom: 20px; }
+.cfm-icon { font-size: 40px; margin-bottom: 6px; }
+.cfm-title { font-size: 20px; font-weight: 700; color: #2c3e50; margin: 0; }
+.cfm-sub { font-size: 13px; color: #7f8c8d; margin-top: 4px; }
+.cfm-body { display: flex; flex-direction: column; gap: 4px; }
+.cfm-info {
+  background: #f7f9fc; border-radius: 10px; padding: 14px 16px;
+  margin-bottom: 8px;
+}
+.cfm-info-linha {
+  display: flex; justify-content: space-between; padding: 6px 0;
+  font-size: 13px; color: #5c6b7a;
+}
+.cfm-info-linha strong { color: #2c3e50; }
+.cfm-info-destaque {
+  border-top: 1px solid #eaeef3; padding-top: 12px; margin-top: 6px;
+}
+.cfm-info-destaque strong {
+  font-size: 18px; color: var(--tema-cor, #27ae60);
+}
+.cfm-label {
+  font-size: 12px; font-weight: 700; color: #5c6b7a;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-top: 10px;
+}
+.cfm-input {
+  padding: 12px 14px; font-size: 16px; font-weight: 600;
+  color: #2c3e50; background: #f7f9fc;
+  border: 2px solid #eaeef3; border-radius: 10px; outline: none;
+  font-family: inherit;
+}
+.cfm-input:focus { border-color: var(--tema-cor, #27ae60); background: #fff; }
+.cfm-hint { font-size: 11px; color: #95a5a6; font-style: italic; margin-top: 4px; }
+.cfm-erro {
+  background: #fdecea; color: #c0392b; padding: 10px 14px;
+  border-radius: 8px; font-size: 13px; margin-top: 12px; font-weight: 600;
+}
+.cfm-footer { display: flex; gap: 10px; margin-top: 20px; }
+.cfm-btn {
+  flex: 1; padding: 13px; font-weight: 700; font-size: 15px;
+  border: none; border-radius: 10px; cursor: pointer;
+  font-family: inherit; transition: filter 0.2s;
+}
+.cfm-btn-cinza { background: #f0f3f7; color: #5c6b7a; }
+.cfm-btn-cinza:hover { background: #e0e5ec; }
+.cfm-btn-perigo { background: #c0392b; color: #fff; flex: 2; }
+.cfm-btn-perigo:hover:not(:disabled) { background: #a93226; }
+.cfm-btn:disabled { opacity: 0.5; cursor: not-allowed; }

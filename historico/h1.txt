@@ -1,0 +1,132 @@
+NÃO INFORMADO where applicable. Max ~800 words.
+1. Projeto e objetivo final
+
+    ERP legado em VB6 + MySQL 4.1 (PDV, mesas, financeiro, caixa, estoque).
+
+    Serviço intermediário em PHP que conversa com o banco.
+
+    App Android de mesas em React Native/Expo (pronto).
+
+    App web React → compilado em Electron (em construção) — foco atual.
+
+    Objetivo final: emitir NFC-e (via DLL Tecnospeed) e depois integrar TEF (débito, crédito, PIX) no fechamento da venda.
+
+2. Stack/ferramentas usadas
+
+    Backend: PHP 7.4+/8.x + PDO + MySQL 5.7+/MariaDB + Apache (XAMPP/Linux).
+
+    App Android: React Native 0.86 + Expo SDK 57, Axios, AsyncStorage.
+
+    App web: React + Electron (versão NÃO INFORMADA).
+
+    Criptografia de senha: algoritmo VB6 replicado em PHP (encriptar()).
+
+    Fiscal: DLL Tecnospeed (nome exato do produto NÃO INFORMADO — ACBr/Integrador/TEF ainda não confirmado).
+
+    Migração VB6 → PHP: classe NfceFiscal.php replica lógica do ERP.
+
+3. Estrutura de arquivos/pastas
+
+    Backend app_mesas_api/: index.php, core/Core.php, controllers/{appController,vendasController,produtoController}.php, models/{Vendas,Usuario,Produto,Empresa}.php, lib/Criptografia.php. Model fiscal: NfceFiscal.php (+ Produto.php referenciado).
+
+    App Android MeuAppMesasV3/: src/{config,context,hooks,navigation,services,screens,utils}/.
+
+    App web/Electron: MesaDetalhesModal.jsx + MesaDetalhesModal.css. FechamentoModal existe e está funcional (código NÃO INFORMADO).
+
+4. O que já está pronto/funcional
+
+    App Android: login, dashboard, mesas com auto-refresh, abertura de mesa, pedido, produtos, histórico, temas, config multi-empresa.
+
+    Serviço PHP: parte que conversa com o app de mesas — 100%.
+
+    App web/Electron:
+
+        Login (com permissões), Dashboard, tela de mesas (abrir/editar/fechar).
+
+        Modal lançar itens (busca, +/-, qtd quebrada).
+
+        Modal de fechamento OK: trocar/cadastrar cliente, desconto (regras no BD), múltiplas formas de pagamento (botões: Dinheiro=1, Crédito=4, Débito=5, PIX=117).
+
+        Grava em vendas_formas, receber, recebido, recebido_formas.
+
+    NfceFiscal.php: estrutura pronta — método prepararTudo() popula tabelas nfce_* e dfe_* a partir de uma venda. Ainda não transmite (só prepara).
+
+    Tabelas fiscais envolvidas: tab_nfce, nfce_identificacao, nfce_emitente, nfce_destinatario, nfce_produtos, nfce_produtos_impostos_icms, nfce_totais, nfce_totais_formapgto, nfce_informacoescpl, dfe_gibsuf, dfe_gibsmun, dfe_gcbs, dfe_class_fiscal, dfe_is, dfe_gibstotal, dfe_gcbstotal, dfe_gibscredpres.
+
+5. Decisões de arquitetura/design já tomadas
+
+    NFC-e emitida após fechamento da venda no PDV/app. vendas.status: 0=aberta, 1=fechada, 2=cancelada.
+
+    vendas.vendedor = código do funcionário (não do usuário). funcionarios.USER é palavra reservada (usar backticks).
+
+    Sessão/token: base64 simples (codigo:time:md5), 7 dias com renovação automática. Não é JWT.
+
+    Modalidade de emissão: modelo 65, versão 4.00, ambiente homologação por padrão, série 1.
+
+    Reforma Tributária (IBS/CBS/IS) já contemplada via tabelas dfe_*.
+
+    Formas de pagamento mapeadas por tab_formapagamento.nfce_formapgto_vinculada (tPag SEFAZ).
+
+    Regra VB6 mantida para troco: XML 4.00 grava valor cheio; versões anteriores descontam troco.
+
+6. Problemas atuais e pendências
+
+    NfceFiscal.php já foi corrigido (versão revisada entregue): ide_indfinal=1 (antes era 'sim'), isReformaAtiva com IS NOT NULL, desconto do cabeçalho distribuído proporcionalmente aos itens, vProd prioriza total_bruto, guard contra status ≥ 100 (não sobrescrever NFC-e autorizada), insc_est sem pontuação.
+
+    Pendente confirmar com a DLL Tecnospeed:
+
+        Nome exato do produto (ACBrMonitor? Integrador? TEF?).
+
+        Quem dispara a DLL: Electron via node-ffi/edge-js, serviço Windows, ou PHP via COM.
+
+        Onde a DLL roda (mesma máquina do certificado A1?).
+
+        Se a DLL lê as tabelas nfce_* direto ou recebe XML pronto.
+
+        Colunas de retorno (chave, protocolo, XML autorizado, data) — em tab_nfce ou tabela separada.
+
+        Uso de indPag (extinto na 4.00).
+
+        Comportamento do campo troco em nfce_totais_formapgto.
+
+    TEF: ainda não iniciado.
+
+7. Próximo passo exato
+
+    Confirmar as 6 pendências da DLL Tecnospeed listadas no item 6.
+
+    Depois: definir o contrato entre PHP → DLL → banco (quem chama, quando, o que lê/grava).
+
+    Depois: implementar o disparo (Electron → PHP prepararTudo → chamada da DLL → UPDATE tab_nfce com chave/protocolo/status).
+
+    Falta receber: FechamentoModal do Electron (código) para plugar a chamada de prepararTudo logo após gravar a venda.
+
+8. Pegadinhas ou decisões não óbvias
+
+    funcionarios.USER é palavra reservada SQL.
+
+    Ao gravar vendas.vendedor, usar funcionarios.codigo, não usuarios.codigo.
+
+    usesCleartextTraffic no Expo SDK 57 deve ficar dentro de expo-build-properties, não em android direto.
+
+    Divergência de totais (item × cabeçalho) causa rejeição SEFAZ 531/532 — daí a distribuição proporcional do desconto.
+
+    Regra de troco varia por versão do XML (4.00 vs anterior) — herdada do VB6.
+
+    NFC-e já autorizada NÃO pode ter prepararTudo chamado de novo (guard implementado).
+
+    prepararTudo não transmite — só popula tabelas. Transmissão é passo separado.
+
+9. Instruções para a IA no novo chat
+
+    Contexto: continuar projeto acima. Não reexplicar o que já está pronto.
+
+    Aguardar do usuário: nome/versão da DLL Tecnospeed, mecanismo de disparo, local de execução, código do FechamentoModal.
+
+    Ao receber isso: (a) fechar contrato PHP↔DLL; (b) escrever disparo; (c) plugar no fechamento.
+
+    Não inventar schema de tabelas fiscais nem colunas da DLL — se faltar info, perguntar.
+
+    Manter português; respostas técnicas objetivas com código quando aplicável.
+
+    A versão revisada do NfceFiscal.php (com correções) está no chat anterior — pedir ao usuário para colar novamente se necessário.

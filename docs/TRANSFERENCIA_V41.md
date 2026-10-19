@@ -1,0 +1,529 @@
+📋 TRANSFERÊNCIA — Facilit NFC-e (v41)
+
+Data: 16/Outubro/2026 (sexta-feira, noite)
+Status: 🎉 NFC-e 100% EMITINDO em homologação. TEF gravando/cancelando. Impressão 2 vias. Executável Electron com ícone. Multi-empresa OK. Tema em 6 modais. Controle de Caixa completo. PDV Unificado (S: Mesas + Venda Direta; N: PDV Full-Screen). PDV Full-Screen repaginado (sidebar visual, F-keys, QTD/R$, bloqueio venda_unidade, autorização de cancelamento). PENDENTE: HashRouter + logo antes de recompilar.
+
+1. Projeto e objetivo final
+
+    ERP legado: VB6 + MySQL 4.1 (WDS Comercial, banco controlfacil).
+    Serviço PHP intermediário: app_mesas_api (PHP 7.1.9).
+    Facilit App: React Native/Expo — pronto.
+    Facilit (PDV desktop): React + Vite + Electron, pasta D:\ANDROID\wds-pdv.
+    Objetivo: emitir NFC-e (modelo 65) via TecnoSpeed v6.0 (COM) + TEF CliSiTef, múltiplos terminais em rede.
+
+ARQUITETURA DE REDE
+
+    Servidor (192.168.100.67): backend — PHP + MySQL + TecnoSpeed + jobs. SEM frontend, PinPad ou impressora.
+    Cada terminal: Electron com frontend buildado. CliSiTef local + impressora local.
+    Configuração por terminal: ConfigPage salva IP/porta/caminho/empresa no localStorage.
+    Impressão TEF: Electron silencioso (webContents.print); navegador usa iframe fallback.
+
+2. Stack / ferramentas
+
+Backend
+
+    PHP 7.1.9, Apache 2.4.27/XAMPP, MySQL 4.1 (latin1), TecnoSpeed v6.0 (COM NFCex.spdNFCeX).
+    Timezone America/Cuiaba. Logs: php_error_log + app_mesas_api\logs\nfce_fiscal.log.
+
+Frontend / Terminal
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20 + qrcode.react.
+    Electron 41.7.1 + electron-builder 26.15.3.
+    Pasta: D:\ANDROID\wds-pdv. Dev server: http://192.168.100.67:3000.
+
+TEF — Agente CliSiTef
+
+    Porta 8443, URL https://127.0.0.1:8443/agente/clisitef.
+    Versão 1.0.0.16.r1. Cert self-signed — aceitar 1x por terminal.
+    Endpoints: /state, /session, /startTransaction, /continueTransaction, /finishTransaction, /getVersion, /pinpad/*.
+    🔴 HOMOLOGAÇÃO: PIX em MODO SIMULAÇÃO — não gera QR Code.
+    PinPad: 16 chars/linha, 2 linhas úteis.
+
+Credenciais SiTef
+
+    IP 177.72.161.156:4096 | Loja 00000000 | Terminal único por máquina.
+    CNPJ adquirente 01425787000104.
+
+Credenciais NFC-e
+
+    SH CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907.
+    Emitente CNPJ 58717761000149, UF MT, Ambiente=2 (homologação).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\, Esquemas\vm60\, certificado\cliente.pfx (senha 123), NFCeGerada\ano\mes\dia\, Log\.
+
+3. Estrutura de arquivos
+
+Backend — C:\xampp\htdocs\app_mesas_api\
+text
+
+models/NfceFiscal.php         ; ✅ criarDestinatario (fix 598/215) + sincronizarTefParaNfce + buscarCartaoTef + cnpjEmitente + blocoFormasPagamento
+models/NfceGeradorTxt.php     ; ✅
+models/NfceTransmissor.php    ; ✅
+models/Vendas.php             ; ✅ + estornarEstoqueVenda
+models/Produto.php            ; ✅ listarConsulta + buscarExato + buscarPorBalança (ambos com p.venda_unidade — NOVO v41)
+controllers/appController.php ; ✅ login (usaControleMesas in_array) + nfceEmitir + dadosEmpresa
+                              ; ✅ caixaListar + caixaInfo + caixaAbrir + caixaFechar + caixaGarantirLoteAberto + caixaCalcularSaldoFechamento + caixaCriarLote + caixaFecharLote + caixaObterUltimoValorFechamento + caixaValidarLoteAberto
+                              ; ✅ finalizarVenda + vendaAbrir (0/9999/mesa)
+                              ; ✅ produtoBuscarExato + produtoBuscarBalança
+                              ; ✅ autorizarCancelamento
+                              ; ✅ gravarVendasTef + cancelarVendasTef
+
+Frontend — D:\ANDROID\wds-pdv\
+text
+
+build/icon.ico                ; ✅ 256x256 multi-size
+electron/main.cjs + preload.cjs ; ✅ CommonJS + printCupom IPC
+
+src/
+├── main.jsx, App.jsx         ; ✅ rotas + /pdv + /venda-direta — ⚠️ HashRouter PENDENTE
+├── config/index.js           ; ✅ getEmpresa() + EMPRESA_PADRAO (fallback)
+├── context/AuthContext.jsx   ; ✅
+├── hooks/usePermissoes.js    ; ✅ nega por padrão (não mais "permite tudo")
+├── pages/
+│   ├── ConfigPage, LoginPage, DashboardPage  ; ✅ (Dashboard com botão único PDV)
+│   ├── PdvPage.jsx           ; ✅ roteador (usaControleMesas)
+│   ├── PdvBalcaoPage.jsx     ; ✅ PdvFullScreen + auto-renovação
+│   ├── VendaDiretaPage.jsx   ; ✅ MesaDetalhesModal2 (9999)
+│   ├── CaixaPage, MesasPage (guard), NotasPage, HistoricoPage  ; ✅
+│   └── ...
+├── components/
+│   ├── PdvFullScreen.jsx          ; ✅ repaginado v40/v41 (sidebar 2 colunas, QTD/R$, venda_unidade, auth cancelamento)
+│   ├── PdvFullScreen.css          ; ✅
+│   ├── AutorizarCancelamentoModal.jsx ; ✅ NOVO v40
+│   ├── AutorizarCancelamentoModal.css ; ✅
+│   ├── MesaDetalhesModal2.jsx     ; ✅ tema
+│   ├── FinalizarVendaModal.jsx    ; ✅ TEF + CPF + tema
+│   ├── TefModal.jsx               ; ✅ modo venda/cancelar + impressão 2 vias
+│   ├── SuccessModal, DetalhesPedidoModal, MesaDetalhesModal, ConfirmModal, BotaoImprimirCupom ; ✅
+│   ├── CaixaAberturaModal, CaixaFechamentoModal  ; ✅
+│   └── ...
+└── services/
+    ├── api.js, configService.js, sessionService.js  ; ✅
+    ├── pagamentoService.js, tefService.js (getEmpresa)  ; ✅
+    ├── caixaService.js         ; ✅ + podeVender
+    ├── mesaService.js          ; ✅ + abrirVendaBalcao(mesaComanda)
+    ├── produtoService.js       ; ✅ + buscarExato + buscarPorBalança
+    └── ...
+
+package.json                  ; ✅ main: electron/main.cjs + electron:dev/build + portable
+
+4. O que está pronto/funcional
+
+Fiscal — 100% EMITINDO EM HOMOLOGAÇÃO 🎉
+
+    NFC-e com cliente cadastrado, CPF avulso, sem CPF: AUTORIZADA.
+    cStat 598 e 215 resolvidos.
+
+TEF
+
+    Crédito, Débito, PIX (simulação), Parcelado, Cancelamento (functionId 200 + CNC).
+    Gravando em vendas_tef / vendas_tef_comprovante / nfce_tef.
+
+Impressão Comprovante TEF
+
+    imprimirTexto blindado. Electron silencioso + iframe fallback.
+    Via estabelecimento: auto. Via cliente: checkbox (default marcado).
+
+PinPad Boas-Vindas
+
+    "BEM-VINDO / <FANTASIA>" centralizado em 2 linhas de 16 chars. persistente='Y'.
+
+CPF na Nota
+
+    CPF avulso + cliente cadastrado + sem CPF. Validação front + backend.
+
+Tela de Caixa
+
+    Grid + filtros + rodapé + banner + modais abrir/fechar.
+    Controle AUTO (herança de saldo) + MANUAL (fechar ontem antes) + Guard em Mesas.
+
+Executável Electron
+
+    FacilitPDV-0.0.0.exe (portable). Ícone personalizado. ConfigPage no primeiro boot.
+
+Tema Aplicado em 6 Modais
+
+    CSS variables --tema-cor / --tema-cor-suave. Fallback :root.
+
+Multi-empresa
+
+    getEmpresa() lê do localStorage, fallback EMPRESA_PADRAO.
+    14 services + LoginPage migrados.
+
+PDV Unificado
+
+    param_sistema.usa_controle_mesas: char(1) 'S'/'N' lido com in_array.
+    Dashboard: S → Mesas + Venda Direta; N → PDV.
+    Venda Direta (S): MesaDetalhesModal2 com mesa_comanda = 9999.
+    PDV (N): PdvFullScreen com mesa_comanda = 0.
+    Backend vendaAbrir aceita 0, 9999, ou mesa normal.
+
+PDV Full-Screen — REPAGINADO v40/v41 🎉
+
+    Layout em 2 colunas: sidebar 320px + conteúdo (position: fixed; inset: 0).
+    Sidebar: círculo do carrinho (tema.corSuave) + label + stats (ITENS, SUBTOTAL) + operador/venda + dica.
+    Header com tema + qtd itens + total.
+    Campo QTD prévia (default 1) com toggle QTD/R$ (state modoTela).
+    Campo busca autofocus com Enter adiciona.
+    Lista com grid 5 colunas (qtd, descrição, unitário, total, remover).
+    Atalhos: F1 Ajuda, F2 Qtd, F3 Busca, F4 Remove último, F9 Finaliza, F10 Cancela (com auth), F12 Sai, Esc limpa.
+    Modal de ajuda com tabela de atalhos.
+    Auto-renovação após venda (SuccessModal.onClose → abrirNovaVenda).
+
+QTD/R$ TOGGLE + BLOQUEIO venda_unidade — NOVO v41 🎉
+
+    Toggle QTD / R$ ao lado do label do campo.
+    Modo QTD (padrão): quantidade direta (default 1, reset após adicionar).
+    Modo R$: valor digitado → qtd = valor / preço vista (arredondado a 3 casas).
+    Campo `produtos.venda_unidade` (char 'S'/'N'):
+      'N' → aceita venda por valor (toggle R$ funciona normal).
+      'S' → só unidade; se operador em R$ → BLOQUEIA com feedback vermelho.
+    Bloqueio fecha dropdown de resultados + limpa busca + z-index do feedback = 200.
+
+BUSCA CÓDIGO DE BARRAS + BALANÇA
+
+    Produto::buscarExato: WHERE codigobarra = :codigo OR referencia = :codigo (SEM LIKE).
+    Produto::buscarPorBalança: parser configurável (prefixo, tamCodigo, tamValor, temDV, tipo peso/valor).
+    Layout default: prefixo 2 + cod 6 + valor 5 + DV = 13 dígitos.
+    PdvFullScreen detecta: 13 dígitos prefixo 2 → balança; 8+ dígitos → exato; senão fuzzy.
+
+AUTORIZAÇÃO DE CANCELAMENTO
+
+    Backend: autorizarCancelamento (autentica supervisor + verifica permissão 'cancelarorcamento').
+    Frontend: AutorizarCancelamentoModal.jsx.
+    PdvFullScreen: F10 → se sem permissão → modal de supervisor; senão → ConfirmModal.
+    usePermissoes.js: nega por padrão quando user.permissoes é undefined.
+
+5. Decisões de arquitetura
+
+    🔴 forma_pagto em vendas_tef; forma_pgto em nfce_tef.
+    🔴 vendas_tef.tipo = char(1), sempre '1'.
+    PK vendas_tef = (empresa, venda, parcela, codigo, ordem). Sem ON DUPLICATE em MySQL 4.1.
+    CPF avulso NÃO persiste — viaja no payload do nfceEmitir.
+    🔴 HOMOLOGAÇÃO: xNome destinatário = "NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL".
+    🔴 NFC-e sem cadastro: anular TODOS os 9 campos de endereço.
+    Cancelamento TEF preserva NSU original. catch (Throwable) em prepararTudo/nfceEmitir.
+    🔴 SEM React.StrictMode no PDV.
+    🔴 Electron main process usa CommonJS (.cjs).
+    🔴 Electron: BrowserRouter quebra em file:// — precisa HashRouter. PENDENTE.
+    🔴 Logo com src="/logo.png" quebra em file:// — usar ./logo.png ou import. PENDENTE.
+    🔴 imprimirTexto NUNCA propaga erro. Fallback: iframe.
+    🔴 CSS variables NÃO cascateiam para irmãos.
+    🔴 Empresa sempre via getEmpresa().
+    Permissões de caixa: negar por padrão.
+    Padrão de página: dash-header + mesas-header-right + RelogioHeader.
+    Caixa AUTO: herança. MANUAL: operador decide + fecha ontem antes.
+    Guard de Mesas é fail-open.
+    🔴 PDV: 1 botão no Dashboard roteia por usa_controle_mesas.
+    🔴 Venda Direta (S) = 9999. PDV puro (N) = 0.
+    🔴 PdvFullScreen: sidebar 320px + conteúdo; full-screen fixed.
+    🔴 Busca código: 13 dígitos prefixo 2 = balança; 8+ = exato; resto = fuzzy.
+    🔴 SuccessModal.onClose → abrirNovaVenda.
+    🔴 Autorizar cancelamento: se sem permissão → modal de supervisor.
+    🔴 usePermissoes.js: nega por padrão.
+    🔴 QTD/R$ toggle + venda_unidade bloqueio (Opção C).
+    🔴 Feedback com z-index: 200; dropdown com z-index: 100.
+
+6. Problemas atuais e pendências
+
+🔴 PENDENTE CRÍTICO — HashRouter + logo antes de recompilar
+
+    App.jsx: BrowserRouter → HashRouter.
+    Logo: mover para src/assets/logo.png e importar (ou ./logo.png em todos).
+    rmdir /S /Q release && npm run electron:build.
+
+🟡 Balança — aguardando 4 dados
+
+    Formato do código (exemplo real de 13 dígitos).
+    É peso (gramas) ou valor (centavos)?
+    Posição do código do produto (referencia ou codigobarra)?
+    Tem dígito verificador no final?
+
+🟡 Próximas funcionalidades — PDV
+
+    Impressão: NFC-e vs. cupom não-fiscal (parâmetro por empresa).
+    Escolha no dinheiro: emitir NFC-e ou imprimir cupom não-fiscal.
+    Autorização de supervisor para "remover item" (opcional).
+    Editar item da lista (mini-modal com qtd/preço/total) — ideia futura.
+
+🟡 Tela de Caixa — extensões
+
+    Backend: caixaResumo, caixaEstornar, caixaExcluir, caixaLiberar.
+    Frontend: painel Resumo por Forma.
+    Novo Lançamento (entrada/saída) — aguardando VB6.
+
+🟡 Pendências menores
+
+    tefService.js — mostrarMensagemPinpad DUPLICADO (40 e 80 chars).
+    tefService.js — montarParametrosCancelamento com '001-000 = 884' hardcoded.
+    NfceFiscal.php — aplicarCartaoEmFormapgto usa $t['forma_pgto'].
+    Remover TesteTefButton.jsx + chamada no DashboardPage.jsx.
+    gravarVendasTefComprovante — via_completa salva errado.
+
+🟡 Config Electron
+
+    Remover bloco extraResources do package.json.
+    EPERM em rename: fechar .exe + taskkill + rmdir release + exclusão no antivírus.
+
+🟢 Roadmap longo
+
+    Voucher (Cartão Alimentação/Refeição).
+    E-mail (PHPMailer + XML + PDF).
+    Fix do vendedor (codigoFuncionario).
+    {TipoDocFiscal=1;} em ParamAdic (produção).
+    CPF avulso em PRODUÇÃO: se bate com cadastro, usar razao.
+    Tela de acompanhamento TEF.
+    Backup automático MySQL + Tailscale/Cloudflare Tunnel.
+
+7. Próximo passo exato
+
+Prioridade 1 — HashRouter + logo + recompilar
+
+    App.jsx: BrowserRouter → HashRouter.
+    Logo: src/assets/logo.png + import (ou ./logo.png).
+    rmdir /S /Q release && npm run electron:build.
+
+Prioridade 2 — Balança (aguardando dados)
+
+    Enviar .ini + exemplo de código + tipo (peso/valor) + posição do código.
+
+Prioridade 3 — Impressão NFC-e vs cupom não-fiscal.
+
+Prioridade 4 — Extensões da Caixa (Resumo, Estorno, Exclusão).
+
+Prioridade 5 — Limpar duplicatas tefService.
+
+Prioridade 6 — Voucher.
+
+8. Pegadinhas e decisões não óbvias
+
+Fiscal
+
+    🔴 pibsuf/pibsmun (minúsculo), vIBSUF (maiúsculo).
+    🔴 Typo: terminino_vigencia_ncm_nbs_ibs_cbs.
+    🔴 cStat real em <retEvento>/<retInutNFe>. 241, 563 = sucesso disfarçado.
+    🔴 cStat 598 = homologação com xNome destinatário fora do padrão.
+    🔴 cStat 215 = schema XML inválido (enderDest mal formado).
+    🔴 Justificativa com acento → sanitizarTexto().
+    🔴 Estorno estoque antes de marcar item cancelado.
+    🔴 NÃO adicionar <?xml?> antes de assinar.
+    🔴 Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+    🔴 IBSCBSTot obrigatório mesmo zerado.
+    🔴 vendas.numero_nfe = 0 anti-duplicidade.
+
+Técnicas gerais
+
+    PHP 7.1.9 — catch (Throwable), sem sintaxe moderna.
+    MySQL 4.1 — sem CTE, sem window, sem ON DUPLICATE em prepared.
+    Timezone: America/Cuiaba (UTC-4). PDO retorna string — sempre Number().
+    Nunca concatenar PDOStatement em log.
+    ❗ PHP 7: Error NÃO é capturado por catch(Exception). Sempre Throwable.
+    ❗ React StrictMode NÃO funciona em PDV.
+    ❗ Não duplicar imports (Vite quebra).
+    🔴 PHP: comparar char(1) 'S'/'N' com == 1 SEMPRE falha. Usar in_array.
+    ❗ Ctrl+S é obrigatório após editar.
+    ❗ Cache do Vite: Ctrl+Shift+R; se persistir, rmdir node_modules\.vite.
+    ❗ Edições parciais de JSX quebram: conferir <button> com <span> internos.
+    ❗ setTimeout(setFeedback(null)) NÃO cancela feedback imediato: limpar dropdown antes.
+
+Electron
+
+    🔴 package.json "type": "module" → main process DEVE ser .cjs.
+    🔴 React Router em Electron: SEMPRE HashRouter.
+    🔴 Assets em file://: caminhos absolutos NÃO funcionam.
+    🔴 vite.config.js base: './'.
+    🔴 ignore-certificate-errors + disable-features BlockInsecurePrivateNetworkRequests.
+    🔴 EPERM em rename: .exe aberto ou antivírus.
+    🔴 Electron build: portable (não NSIS). Ícone: .ico 256x256 multi-size.
+
+Tema
+
+    🔴 CSS variables NÃO cascateiam para irmãos. Fallback :root garante legibilidade.
+    🔴 Manter cores semânticas. Hover: filter: brightness(0.9).
+
+Multi-empresa
+
+    🔴 Empresa sempre via getEmpresa(). LoginPage precisa enviar empresa no POST.
+
+Controle de Caixa
+
+    🔴 contas.controla_abertura_fechamento: 0=auto, 1=manual. status: 0=inativo, 1=ativo.
+    🔴 AUTO herda valor_fechamento do lote anterior. Saldo CUMULATIVO.
+    🔴 MANUAL: operador escolhe + precisa fechar ontem antes de abrir hoje.
+    🔴 Fórmula: valor_fechamento = valor_abertura + SUM(C) − SUM(D) [estornado=0].
+    🔴 PK caixa_lote_abertura = (empresa, codigo, caixa_abertura).
+    🔴 Lote ativo = data_fechamento em ('', '0000-00-00'). Fechado = SOMENTE LEITURA.
+    🔴 caixa_movimento.codigoloteabertura é FK implícita.
+    🔴 caixa_dedicado prevalece sobre caixa_padrao.
+    🔴 CAST(codigoloteabertura AS UNSIGNED) + bind INT em MySQL 4.1.
+    🔴 MAX(codigo) global por EMPRESA.
+    🔴 Filtro datalancamento >= data_abertura E <= data_fechamento.
+    🔴 Nunca apagar lotes sem apagar movimentos vinculados.
+    🔴 Guard de Mesas é fail-open.
+
+PDV Unificado
+
+    🔴 param_sistema.usa_controle_mesas: char(1) 'S'/'N'.
+    🔴 Backend DEVE usar in_array com ['1','S','Y','T','TRUE'] (case-insensitive, trim).
+    🔴 S → Mesas + Venda Direta (9999). N → PDV Full-Screen (0).
+
+PdvFullScreen
+
+    🔴 position: fixed; inset: 0 (full-screen).
+    🔴 Sidebar 320px + conteúdo (grid-template-columns: 320px 1fr).
+    🔴 QTD com toggle QTD/R$ (state modoTela).
+    🔴 F1 ajuda, F2 qtd, F3 busca, F4 remove, F9 finaliza, F10 cancela (com auth), F12 sai.
+    🔴 Auto-renovação: SuccessModal.onClose → abrirNovaVenda.
+    🔴 Detecção de bipe: 13 dígitos prefixo 2 = balança; 8+ = exato; resto = fuzzy.
+    🔴 Botão F10 usa classe pfs-btn-perigo (vermelho claro) + handleSolicitarCancelamento.
+    🔴 Cuidado ao editar JSX: <button> precisa de <span> internos.
+    🔴 Feedback com position: relative + z-index: 200 (acima do dropdown).
+
+QTD/R$ + venda_unidade
+
+    🔴 produtos.venda_unidade: char 'S' = só unidade, 'N' = aceita por valor.
+    🔴 Modo VALOR: qtd = valorDigitado / preço vista (arredondado a 3 casas).
+    🔴 Se venda_unidade = 'S' E modo = 'VALOR' → BLOQUEIA (Opção C).
+    🔴 Bloqueio: setFeedback erro + setProdutos([]) + setBusca('') + timeout 3500ms.
+
+Autorização de Cancelamento
+
+    🔴 Backend autorizarCancelamento: autentica supervisor + verifica 'cancelarorcamento' (executar).
+    🔴 Rotina: 'cancelarorcamento', campo: 'executar'.
+    🔴 Retornos: 401 (credenciais), 403 (sem permissão).
+    🔴 F10 no PdvFullScreen: se permissoes.cancelarVenda === false → modal.
+    🔴 usePermissoes: nega por padrão se user.permissoes undefined.
+
+Busca de Produtos
+
+    🔴 buscarExato: = codigobarra OR = referencia (SEM LIKE) + retorna venda_unidade.
+    🔴 buscarPorBalança: prefixo 2 + cod 6 + valor 5 + DV = 13 (default).
+    🔴 tipo 'peso': gramas → kg × vista. tipo 'valor': centavos → total.
+    🔴 Filtro: status=1, tipo_cadastro='PRODUTO', exporta_app='sim', tipo_item=0, estoque > 0.
+
+Impressão
+
+    🔴 imprimirTexto NUNCA propaga erro. Fallback navegador: iframe.
+    🔴 Electron: webContents.print({silent: true}). CSS: @page { size: 80mm auto; margin: 0; }.
+
+TEF
+
+    🔴 Agente porta 8443; cert self-signed; terminalId único.
+    🔴 FORMAS_TEF = ERP codes (4/5/117).
+    🔴 functionIds: 2=Débito, 3=Crédito, 5=Benefício, 122=PIX, 200=Cancelamento.
+    🔴 Campo 546 = Tipo Voucher. Campo 121 = Cupom Estabelecimento. Campo 122 = Cupom Cliente.
+
+PinPad
+
+    🔴 Largura 16x2. persistente='Y'.
+
+PIX (homologação)
+
+    🔴 MODO SIMULAÇÃO — não gera QR Code.
+
+Pegadinhas de schema
+
+    🔴 vendas_tef: forma_pagto. nfce_tef: forma_pgto.
+    🔴 vendas_tef_comprovante: via_cliente (minúsculo).
+    🔴 PK vendas_tef: (empresa, venda, parcela, codigo, ordem).
+    🔴 clientes tem APENAS coluna cpf (CPF 11 ou CNPJ 14).
+    🔴 data_c/hora_c varchar(15), DD/MM/YYYY + HH:MM:SS.
+    🔴 Rotinas de permissão caixa: caixamovimento, caixamovimento_novolacto, caixamovimento_estornarlacto, caixamovimento_excluirlacto, caixamovimento_liberar, caixamovimento_mostrarsaldos, caixamovimento_manutabertura, caixamovimento_manutcentrocusto, caixacadastroconta, caixaabertura, relcaixa.
+    🔴 Rotina de cancelamento: 'cancelarorcamento'.
+    🔴 param_sistema.usa_controle_mesas: char(1) 'S'/'N'.
+    🔴 produtos.venda_unidade: char(1) 'S'/'N' (S = só unidade).
+    🔴 caixa_lote_abertura PK composta + codigo sequencial por caixa.
+    🔴 contas.controla_abertura_fechamento (auto/manual) + status (ativo/inativo).
+    🔴 caixa_movimento.codigoloteabertura liga movimento ao lote.
+    🔴 produtos: referencia, codigobarra, reforiginal, ref_fabricante, exporta_app, tipo_cadastro, tipo_item, status, venda_unidade.
+
+9. Instruções para a IA no novo chat
+
+    NFC-e 100% emitindo em homologação. TEF gravando/cancelando. Impressão 2 vias.
+    Executável Electron com ícone. Tema em 6 modais. Multi-empresa resolvido.
+    Controle de Caixa completo + Guard em Mesas.
+    PDV Unificado: S → Mesas + Venda Direta (9999); N → PDV Full-Screen (0).
+    PDV Full-Screen: sidebar 2 colunas + F-keys + QTD/R$ + venda_unidade bloqueio + auth cancelamento.
+    Busca EXATA + balança (parser configurável, aguardando layout real).
+    usePermissoes nega por padrão.
+    Ordem: (1) HashRouter + logo + recompilar; (2) balança (enviar .ini); (3) impressão NFC-e vs cupom; (4) extensões Caixa; (5) limpar tefService; (6) voucher.
+    Não refatorar classes validadas (NfceFiscal exceto criarDestinatario/carregarCliente, NfceTransmissor, Vendas).
+    Nunca reintroduzir <?xml?> antes de assinar.
+    Nunca reintroduzir React.StrictMode.
+    Nunca trocar HashRouter por BrowserRouter (Electron).
+    Nunca trocar .cjs por .js no main process.
+    Nunca usar window.open como fallback de impressão.
+    Nunca deixar imprimirTexto propagar erro.
+    Nunca usar EMPRESA_PADRAO hardcoded — sempre getEmpresa().
+    Nunca injetar CSS var só em um modal.
+    Nunca apagar caixa_lote_abertura sem apagar caixa_movimento vinculado.
+    Nunca comparar char(1) 'S'/'N' com == 1 em PHP — usar in_array.
+    Sempre SHOW COLUMNS antes de usar colunas desconhecidas.
+    Sempre catch (Throwable).
+    Sempre inTransaction() antes de rollBack().
+    Sempre sanitizarTexto() em justificativas.
+    Sempre tratar cStat 241, 563 como sucesso.
+    Sempre estornar estoque antes de marcar item cancelado.
+    Sempre curl.exe -k no agente.
+    Sempre Number() ao comparar códigos MySQL via PDO.
+    Sempre CAST(coluna AS UNSIGNED) + bind INT em MySQL 4.1.
+    Nunca concatenar PDOStatement em log.
+    Verificar imports duplicados antes de salvar (.jsx).
+    Verificar se botões têm <span> internos ao editar JSX.
+    Feedback precisa de position: relative + z-index acima do dropdown.
+    Lembrar: Ctrl+S é obrigatório.
+    Manter português, respostas técnicas com código.
+
+10. Histórico de correções acumuladas
+
+v19-v39: ver documentos anteriores.
+
+v40: PDV Unificado (PdvPage, PdvBalcaoPage, VendaDiretaPage) + busca exata + balança + autorização de cancelamento + usePermissoes nega por padrão + PdvFullScreen repaginado.
+
+v41 (hoje):
+
+    PdvFullScreen.css — REPAGINADO completo: sidebar 320px + conteúdo (grid), cores do tema dinâmicas, F10 destacado (pfs-btn-perigo), responsivo em 3 breakpoints.
+
+    PdvFullScreen.jsx — layout em 2 colunas: sidebar com círculo do carrinho (tema.corSuave) + stats + operador/venda/dica; conteúdo com entrada QTD+BUSCA + lista + footer.
+
+    QTD/R$ toggle:
+    State modoTela ('QTD' | 'VALOR') + botões no header do campo QTD.
+    Modo QTD: quantidade direta (default 1).
+    Modo R$: qtd = valorDigitado / preço vista.
+
+    Bloqueio venda_unidade (Opção C):
+    Produtos com venda_unidade = 'S' não aceitam modo R$ — bloqueia com feedback.
+    Feedback fecha dropdown (setProdutos([])) + limpa busca + z-index: 200.
+
+    Produto.php — buscarExato e listarConsulta retornam p.venda_unidade.
+    PdvFullScreen — calcularQtdPreco() verifica venda_unidade + modoTela.
+
+    PdvFullScreen.css — ajustes finos:
+    Grid entrada: 170px 1fr.
+    Campos com height: 60px fixo + focus ring do tema.
+    Item com grid-template-columns: 100px 1fr 100px 130px 40px.
+    Footer com border-top usando var(--tema-cor).
+    pfs-btn-perigo (F10 vermelho).
+
+    Ajustes de layout:
+    pfs-qtd-header com height: 26px (alinhamento com PRODUTO).
+    pfs-busca-bloco > .pfs-mini-label com height: 26px.
+    min-height removido, height: 60px nos campos.
+
+    Bug identificado: botão F10 do footer ficou vazio porque perdeu <span> internos.
+    Bug identificado: dropdown de resultados cobria feedback (z-index).
+    Bug identificado: modoTela não declarado como state (ReferenceError).
+
+    Testado: PDV Full-Screen com sidebar, QTD/R$, venda_unidade bloqueio, autorização de cancelamento. Funcionando.
+
+    PENDENTE: HashRouter + logo antes de recompilar.
+    PENDENTE: layout real de balança.
+    PENDENTE: impressão NFC-e vs cupom não-fiscal.
+
+Fim do documento.
+Contador resetado: mensagem 1 de 15.
+Próximo resumo na 15ª mensagem.
+
+Ao abrir o novo chat: (1) HashRouter + logo + recompilar; (2) balança (enviar .ini); (3) impressão NFC-e vs cupom; (4) extensões Caixa; (5) limpar tefService; (6) voucher. 🎯

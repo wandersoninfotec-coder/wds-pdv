@@ -1,0 +1,249 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Quarta-feira, 30/Setembro/2026 (início do dia)
+Status: 🎉 NFC-e autorizada com 1 item! Bug atual: multi-itens. Roadmap definido para as próximas sessões.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO charset=latin1
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ⚠️ ajustar alíquota por NCM
+│   ├── NfceGeradorTxt.php          ; ✅ FUNCIONANDO
+│   ├── NfceTransmissor.php         ; ✅ FUNCIONANDO
+│   └── Produto.php                 ; buscarRtcPorNcm
+├── teste_*.php                     ; temporários (apagar)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    COM 100% funcional ✅
+
+    PDO charset=latin1, sanitizarAscii, fmtDec corrigidos ✅
+
+    indFinal=1 forçado; alíquotas 2026 (0,10/0,00/0,90) ✅
+
+    tratarRetorno lê protNFe corretamente ✅
+
+    🎉 NFC-e 6023, 6024 AUTORIZADAS — cStat=100 ✅
+
+5. Plano do dia
+🔴 Prioridade 1 — Bug multi-itens (2º item com NCM específico)
+
+Sintoma: venda com 2 itens gera pIBSUF_UB18=0.00 no item 1 (que usa NCM 19059090 — tabela dfe_ncm_nbs_ibs_cbs).
+
+Diagnóstico:
+sql
+
+SELECT produto, sequencial, pibsuf, vibsuf FROM dfe_gibsuf WHERE nfe=6025;
+SELECT produto, sequencial, pibsmun, vibsmun FROM dfe_gibsmun WHERE nfe=6025;
+SELECT produto, sequencial, pcbs, vcbs FROM dfe_gcbs WHERE nfe=6025;
+SELECT item, produto, cst, cclasstrib FROM dfe_class_fiscal WHERE nfe=6025;
+
+Se todas tiverem 2 linhas → problema no gerador TXT. Se faltar linha → problema no NfceFiscal.
+
+Correção principal (NCM): NfceFiscal::processarReformaTributaria hoje zera as alíquotas quando busca por NCM:
+php
+
+'AliquotaIBSUF'  => 0, 'AliquotaIBSMun' => 0, 'AliquotaCBS' => 0,
+
+Deve carregar da tabela dfe_ncm_nbs_ibs_cbs. Passos:
+
+    SHOW COLUMNS FROM dfe_ncm_nbs_ibs_cbs — descobrir nomes reais
+
+    Expandir Produto::buscarRtcPorNcm() para retornar alíquotas
+
+    Ajustar processarReformaTributaria para usar os valores do NCM
+
+🔴 Prioridade 2 — Retorno completo no frontend
+
+Endpoint /app/nfceEmitir deve devolver mais campos:
+php
+
+return [
+    'sucesso'       => $trans['sucesso'],
+    'numero_nfce'   => $numeroNfce,
+    'serie'         => $serie,
+    'chave'         => $trans['chave'] ?? null,
+    'protocolo'     => $trans['protocolo'] ?? null,
+    'cStat'         => $trans['cStat'] ?? null,
+    'xMotivo'       => $trans['mensagem'] ?? null,
+    'ambiente'      => $ambiente,     // 1=prod, 2=homolog
+    'autorizada_em' => $trans['sucesso'] ? date('Y-m-d H:i:s') : null,
+    'url_qrcode'    => $urlQrCode ?? null,
+    'caminho_xml'   => $caminhoXml,
+];
+
+Pergunta pendente: QR Code — gerar no backend (biblioteca) ou usar método do componente TecnoSpeed?
+🟡 Prioridade 3 — Patches Electron (finalizarEEmitir)
+
+    pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+
+    FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem:'FACILIT'
+
+    MesaDetalhesModal2.jsx: mesclar detalesExtras (NFC-e) no SuccessModal
+
+🟡 Prioridade 4 — Contingência
+
+    tpEmis=9, xJust (mín. 15 chars), dhCont
+
+    tab_nfce.status_nfce = 8 durante, vira 3 quando autorizada
+
+    Prazo: até o próximo dia útil
+
+A decidir:
+
+    Gatilho automático (após X timeouts) ou manual?
+
+    Justificativa fixa em param_nfce ou variável?
+
+    Job agendado (Task Scheduler → endpoint nfceReprocessarContingencia)?
+
+🟢 Prioridade 5 — Impressão + e-mail
+
+    Impressão: recomendo usar componente TecnoSpeed (ImprimirDANFCE + Templates\vm60\Danfce\retrato.rtm)
+
+    E-mail: PHPMailer com SMTP configurado em param_sistema; anexos: XML + PDF
+
+    Gatilho: cupom físico sempre; e-mail sob demanda do cliente (a decidir)
+
+🟢 Prioridade 6 — Tela de notas emitidas
+
+Colunas: número/série, data, cliente, total, status (cor por status), chave.
+Ações: reimprimir, baixar XML, ver detalhes, cancelar.
+
+Cancelamento: provavelmente sprint separada (evento fiscal próprio, prazo 30 min, status_nfce=101).
+⚪ Próxima sprint — TEF Sitef
+
+    Cliente Sitef (CliSiTef) é 32-bit → Electron 32-bit ou serviço intermediário
+
+    Fluxo: Electron → JSON → DLL Sitef → CliSiTef.exe → Pinpad
+
+    Precisa decidir: máquina do pinpad, carta de adesão Sitef, homologação técnica
+
+6. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf (minúsculo), vIBSUF (maiúsculo). Sempre SHOW COLUMNS.
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> — VB6 não usa.
+
+    SEFAZ reporta erros pelo protNFe.
+
+    PDO charset=latin1, sanitizarAscii, fmtDec fixo.
+
+    indFinal=1 sempre; alíquotas 2026 (0,10/0,00/0,90).
+
+    Produtos com NCM em dfe_ncm_nbs_ibs_cbs — alíquotas vêm de lá.
+
+    PowerShell: aspas simples, uma linha.
+
+    funcionarios.USER = palavra reservada SQL.
+
+7. Fix pendente (bug secundário)
+
+Vendedor gravando 0:
+
+    login retornar codigoFuncionario
+
+    MesaDetalhesModal2 usar user?.codigoFuncionario || 1
+
+    vendaAbrir rejeitar vendedor <= 0
+
+8. Instruções para a IA no novo chat
+
+    NFC-e autorizada com 1 item (6023, 6024). ✅
+
+    Prioridade 1: diagnosticar/fixar 2º item (case NCM + alíquotas).
+
+    Prioridade 2: retorno completo no endpoint nfceEmitir.
+
+    Prioridade 3: patches Electron (finalizarEEmitir).
+
+    Prioridade 4: contingência (após decisões do usuário).
+
+    Prioridades 5-6: impressão/e-mail + tela de notas.
+
+    Próxima sprint: TEF Sitef.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?>.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas em código.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, Produto.php, appController.php.
+
+Estado: 🎉 Autorização funcionando! Foco em multi-itens, frontend e features de produção.
+
+Fim do documento.
+Última atualização: 30/Setembro/2026 — v3.2

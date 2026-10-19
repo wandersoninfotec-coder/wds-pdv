@@ -1,0 +1,119 @@
+/* src/components/ConfirmModal.css */
+
+.conf-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3000;
+  padding: 20px;
+  animation: confFadeIn 0.2s ease;
+}
+
+@keyframes confFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.conf-content {
+  background-color: #ffffff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 400px;
+  padding: 30px 28px 22px;
+  text-align: center;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  animation: confPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes confPopIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.conf-icon-wrap {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.conf-icon {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.conf-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0 0 8px;
+}
+
+.conf-message {
+  font-size: 14px;
+  color: #5c6b7a;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+.conf-message strong {
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.conf-erro {
+  background-color: #fdecea;
+  color: #e74c3c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.conf-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.conf-btn {
+  flex: 1;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.conf-btn-cancelar {
+  background-color: #f0f3f7;
+  color: #5c6b7a;
+}
+
+.conf-btn-cancelar:hover:not(:disabled) {
+  background-color: #e0e5ec;
+}
+
+.conf-btn-confirmar {
+  color: #ffffff;
+}
+
+.conf-btn-confirmar:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.conf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

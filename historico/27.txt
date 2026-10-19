@@ -1,0 +1,310 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Sexta-feira, 02/Outubro/2026 (fim do dia)
+Status: 🎉 Sistema completo: emissão + contingência + alerta + impressão + tela de notas + cancelamento + inutilização + Diagnóstico de Cadastros. Frontend ainda sem Electron (React + Vite).
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Vite, sem Electron) — PDV desktop.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF Sitef.
+
+2. Stack/ferramentas
+Backend
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado (charset latin1).
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    Log PHP: C:\xampp\php\logs\php_error_log.
+
+Frontend
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20.
+
+    Pasta: D:\ANDROID\wds-pdv.
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\, Esquemas\vm60\
+
+    nfceServidoresHom.ini, nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+pnfce_serie                    = 1
+pnfce_ambiente                 = 2
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── controllers/appController.php
+├── core/Core.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅
+│   ├── NfceGeradorTxt.php          ; ✅
+│   ├── NfceTransmissor.php         ; ✅ (cancelar/inutilizar salvam em banco + disco)
+│   └── Produto.php                 ; ✅
+└── logs/
+
+text
+
+D:\ANDROID\wds-pdv\
+├── src/
+│   ├── App.jsx                     ; ✅ rotas /notas, /diagnostico
+│   ├── pages/
+│   │   ├── DashboardPage.jsx       ; ✅ botões "Notas Fiscais" + "Diagnóstico"
+│   │   ├── NotasPage.jsx/.css      ; ✅
+│   │   └── DiagnosticoPage.jsx/.css; ✅ NOVO
+│   ├── components/
+│   │   ├── AlertaContingencia.jsx/.css    ; ✅
+│   │   ├── MesaDetalhesModal2.jsx         ; ✅
+│   │   ├── FinalizarVendaModal.jsx        ; ✅
+│   │   ├── SuccessModal.jsx/.css          ; ✅
+│   │   ├── BotaoImprimirCupom.jsx         ; ✅
+│   │   ├── NotaDetalhesModal.jsx/.css     ; ✅
+│   │   ├── CancelarNotaModal.jsx/.css     ; ✅
+│   │   └── InutilizarModal.jsx/.css       ; ✅
+│   └── services/
+│       ├── pagamentoService.js
+│       ├── impressaoService.js
+│       ├── notaService.js
+│       └── diagnosticoService.js          ; ✅ NOVO
+
+4. O que já está pronto/validado
+Endpoints ativos
+Endpoint	Status
+POST /app/finalizarVenda	✅
+POST /app/nfcePreparar	✅
+POST /app/nfceEmitir	✅ (fallback contingência automático)
+POST /app/nfceStatusSefaz	✅
+POST /app/nfceReprocessarContingencia	✅
+POST /app/nfceDadosImpressao	✅
+POST /app/nfceListar	✅
+POST /app/nfceCancelar	✅ (banco + disco)
+POST /app/nfceInutilizar	✅ (banco + disco)
+POST /app/nfceDiagnostico	✅
+POST /app/diagnosticoProdutos	✅ NOVO
+Frontend
+
+    Dashboard → botões "Notas Fiscais" + "Diagnóstico"
+
+    NotasPage → lista, filtros, data BR, header padrão
+
+    NotaDetalhesModal → reimprimir / cancelar / inutilizar / diagnóstico
+
+    DiagnosticoPage → 4 cards + abas + tabela; análise por período (30/60/90/180/365 dias)
+
+    AlertaContingencia no topo do PDV
+
+Diagnóstico de Cadastros — categorias
+Categoria	Comportamento
+🔴 Sem NCM e CFOP	Não emite
+🔴 Sem NCM	Não emite
+🔴 Sem CFOP	Não emite
+🟡 CFOP inválido	CFOP não existe em tab_cfop
+
+Lógica: produtos com venda nos últimos N dias, produtos.status = 1, sem dupla contagem (o "sem ambos" sai das outras duas listas).
+
+Relação produtos ↔ tab_cfop:
+
+    produtos.cfop = "5.102-1"
+
+    Split por -: cfop_codigo = "5.102", cfop_indice = "1", empresa
+
+    Match com tab_cfop.cfop_codigo + cfop_indice + empresa
+
+Resultado atual (90 dias)
+text
+
+sem_ambos: 1  → FAIXA DE FREIO 4XXH 2528
+sem_ncm:   1  → PAO FATIADO 400G
+sem_cfop:  1  → MOCINETE RODA DIANTEIRA ESQUERDA 4578
+cfop_invalido: 0
+
+Persistência
+
+    Banco: xml_assinado, xml_autorizado, xml_autorizado_retorno, xml_cancelado, xml_cancelado_ret
+
+    Disco: -assinado.xml, -autorizado.xml, -autorizado_ret.xml, -cancelado.xml, -cancelado_ret.xml, -inutilizado.xml
+
+    XmlDestinatario: <chave>-nfce.xml
+
+Mapa tab_nfce.status_nfce
+Código	Label
+0	Digitada
+1	Validada
+2	Processando
+3	Autorizado
+4	Rejeitado
+5	Denegada
+6	Cancelada
+7	Inutilizada
+8	Contingência
+Lógica de classificação fiscal (prioridade)
+
+    Produto (produtos.CST_IBS_CBS + produtos.cclasstrib)
+
+    NCM (dfe_ncm_nbs_ibs_cbs → tab_tipooperacao_rtc por CST_IBS_CBS + cclasstrib)
+
+    Padrão da empresa
+
+5. Bugs resolvidos nesta sessão
+Bug	Solução
+Cancelamento não mudava status	rowCount() + UPDATE separado (status + XMLs)
+Justificativa com acento rejeitada (schema)	sanitizarTexto() (transliteração + remove não-ASCII)
+cStat=128 lido como status real	Ler cStat de <retEvento>, não da raiz
+XML de cancelamento não salvava em disco	Adicionar file_put_contents() + @mkdir() recursivo
+Diagnóstico com dupla contagem	sem_ambos excluído das listas sem_ncm e sem_cfop
+CNPJ do emitente hardcoded	Propriedade cnpjEmitente carregada no carregarConfig()
+6. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf, pibsmun (minúsculo); vIBSUF (maiúsculo).
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    🔴 PHP 7.1.9 — catch (Throwable $t).
+
+    🔴 json_encode falha silenciosamente → JSON_PARTIAL_OUTPUT_ON_ERROR.
+
+    🔴 CancelarNF retorna cStat da raiz (128) — o real está em <retEvento>.
+
+    🔴 InutilizarNF idem — cStat real em <retInutNFe> (102).
+
+    🔴 Justificativa com acento → sanitizarTexto().
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> antes de assinar.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório mesmo zerado.
+
+    StatusDoServico (não StatusServico).
+
+    Projeto é React + Vite — sem Electron.
+
+    MySQL 4.1 — sem CTE, window functions, IF NOT EXISTS.
+
+    coluna = coluna em JOIN — nunca AND coluna solto.
+
+    SUBSTRING_INDEX funciona no MySQL 4.1 (desde 4.1).
+
+7. Roadmap
+Prioridade	Item	Status
+🟡 1	Job automático de inutilização (dia 1º do mês seguinte)	Planejado
+🟡 2	Correlacionar diagnóstico com rejeições (tab_nfce status_nfce=4)	Planejado
+🟢 3	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 4	Empacotar Electron + IPC (impressão silenciosa)	Pendente
+🟢 5	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	TEF Sitef	Depois
+8. Próximos passos detalhados
+8.1 Job automático de inutilização
+
+Regra definida pelo usuário:
+
+    Executar no dia 1º do mês seguinte
+
+    Varre NFC-e rejeitadas do mês anterior
+
+    Inutiliza automaticamente
+
+    Parâmetro no banco: ativa/desativa (a criar)
+
+    Endpoint novo: /app/nfceInutilizarPendentes (ou similar)
+
+    Task Scheduler (aula a fazer)
+
+8.2 Diagnóstico — refinamentos
+
+    Correlacionar com tab_nfce.status_nfce = 4 (produtos que de fato quebraram)
+
+    Badge "🔴 já causou rejeição" nos produtos
+
+    Filtro "só produtos que já rejeitaram"
+
+8.3 E-mail
+
+    PHPMailer + SMTP em param_sistema
+
+    Anexos: XML autorizado + PDF do cupom
+
+    Botão no NotaDetalhesModal
+
+8.4 Electron
+
+    Instalar electron + electron-builder + concurrently
+
+    electron/main.cjs + electron/preload.cjs
+
+    IPC imprimir-html
+
+    Ajustar vite.config.js (base path) e package.json
+
+9. Instruções para a IA no novo chat
+
+    Sistema 100% funcional exceto itens do roadmap.
+
+    Próxima prioridade: job automático de inutilização (dia 1º do mês) ou correlação do diagnóstico com rejeições.
+
+    Não refatorar NfceFiscal, NfceGeradorTxt, NfceTransmissor, Produto sem motivo.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas.
+
+    SEMPRE catch (Throwable $t).
+
+    SEMPRE sanitizarTexto() em justificativas.
+
+    SEMPRE ler cStat do <retEvento> / <retInutNFe>, não da raiz.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceTransmissor.php, appController.php, NotasPage.jsx, NotaDetalhesModal.jsx, DiagnosticoPage.jsx, notaService.js, diagnosticoService.js.
+
+Fim do documento.
+Última atualização: 02/Outubro/2026 — v11.0
+
+Contador resetado: mensagem 1 de 10. Próximo resumo na 10ª.

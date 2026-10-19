@@ -1,0 +1,142 @@
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (PDV, mesas, financeiro, caixa, estoque).
+
+    Serviço PHP intermediário entre apps e banco.
+
+    Facilit App (React Native/Expo) — app mobile de mesas, pronto.
+
+    Facilit (React → Electron) — PDV desktop novo, em construção, foco atual.
+
+    ERP 2.0 — futuro, migração do VB6.
+
+    Objetivo atual: emitir NFC-e no fechamento da venda via componente TecnoSpeed v6.0 (DLL/OCX via COM). Depois: TEF (débito, crédito, PIX).
+
+2. Stack/ferramentas usadas
+
+    Backend: PHP 7.4+/8.x + PDO + MySQL + Apache.
+
+    App mobile: React Native 0.86 + Expo SDK 57.
+
+    App web: React + Electron (versão NÃO INFORMADA).
+
+    Fiscal: Componente NFC-e TecnoSpeed v6.0 (NFCeX.ocx + NFCeDataSetX.dll), via COM/ActiveX. Integrador Tecnospeed descontinuado (confirmado pelo suporte).
+
+    Config atual: nfceconfig.ini com UF=MT, CNPJ=58717761000149, Ambiente=2 (homologação), VersaoManual=6.0.
+
+    Certificado A1 (TipoCertificado=File, Repositorio=CURRENT_USER_STORE).
+
+3. Estrutura de arquivos/pastas
+
+    Backend app_mesas_api/: controllers/appController.php, models/{Vendas,Usuario,Produto,Empresa,NfceFiscal}.php, lib/Criptografia.php.
+
+    App mobile MeuAppMesasV3/: src/{config,context,hooks,services,screens,components}/.
+
+    App Electron src/:
+
+        components/MesaDetalhesModal2.jsx — tela de mesa (lista/adiciona/remove itens) + botão Finalizar.
+
+        components/FinalizarVendaModal.jsx — fechamento real (chama pagamentoService.finalizarVenda).
+
+        components/SuccessModal.jsx — genérico, recebe detalhes[].
+
+        services/pagamentoService.js — chama POST /app/finalizarVenda.
+
+4. O que já está pronto/funcional
+
+    App mobile: login, dashboard, mesas, pedidos, produtos, histórico.
+
+    appController.php: endpoints login, vendaAbrir, itemAdicionarSeguro (com FOR UPDATE), verificarStatus, historicoListar/Detalhes, clientesListar/Cadastrar, municipiosBuscar, finalizarVenda (grava vendas_parcela, receber, recebido, recebido_formas, caixa_movimento), relatoriosVendas, nfcePreparar (chama NfceFiscal::prepararTudo).
+
+    Electron: MesaDetalhesModal2 funcional; FinalizarVendaModal OK (cliente, desconto, multi-formas, troco, CPF obrigatório MT > R$1000); pagamentoService.finalizarVenda OK.
+
+    NfceFiscal.php: revisado — popula nfce_* e dfe_*. prepararTudo($empresa, $venda, $tipoOperacao) só prepara, não transmite.
+
+5. Decisões de arquitetura/design já tomadas
+
+    NFC-e emitida após fechamento da venda. vendas.status: 0=aberta, 1=fechada, 2=cancelada.
+
+    vendas.vendedor = código do funcionário (não do usuário). funcionarios.USER é palavra reservada (usar backticks).
+
+    Integração escolhida: PHP no Windows chama COM (new COM("NFCeX.spdNFCeX")), com php_com_dotnet habilitado.
+
+    Venda NÃO é desfeita se NFC-e falhar — só loga pendência.
+
+    Componente TecnoSpeed não é thread-safe — precisará de fila/lock depois.
+
+    origem (FACILIT / FACILIT_APP) deve ser gravada em vendas, recebido.origem_recebimento, caixa_movimento.origem.
+
+    Modelo 65, versão 4.00, série 1, ambiente padrão homologação.
+
+6. Problemas atuais e pendências
+
+    Falta descobrir nomes exatos de métodos/propriedades do componente TecnoSpeed (o .frm do VB6 que emite NFC-e ainda não foi enviado).
+
+    Falta criar models/NfceTransmissor.php (stub com TODOs foi proposto, mas não confirmado como criado).
+
+    Falta adicionar endpoint nfceEmitir em appController.php (proposto, não confirmado).
+
+    Falta patch de origem em finalizarVenda (proposto, não confirmado).
+
+    Falta patch de pagamentoService.js (emitirNfce, finalizarEEmitir) — proposto.
+
+    Falta patch de FinalizarVendaModal.jsx (trocar finalizarVenda por finalizarEEmitir + origem: 'FACILIT').
+
+    Falta patch de MesaDetalhesModal2.jsx (mesclar detalhesExtras no SuccessModal).
+
+    tab_nfce pode não ter colunas chave_nfce, protocolo_nfce, mensagem_sefaz, data_autorizacao — checar.
+
+    TEF: não iniciado.
+
+    NÃO INFORMADO: se PHP está em Windows, se php_com_dotnet está habilitado, formato do certificado (.pfx vs Store).
+
+7. Próximo passo exato
+
+    Enviar o .frm do VB6 que emite NFC-e (ou print das linhas onde instancia/chama o componente TecnoSpeed).
+
+    Aplicar os 4 patches já propostos:
+
+        pagamentoService.js: adicionar emitirNfce + finalizarEEmitir.
+
+        FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir, passar origem: 'FACILIT', e devolver {...venda, nfce} no onSucesso.
+
+        MesaDetalhesModal2.jsx: handleSucessoFinalizacao monta detalhesExtras (NFC-e autorizada/pendente) e JSX mescla ...(sucessoModal.detalhesExtras || []).
+
+        SuccessModal.jsx: não muda — já é genérico.
+
+    Backend: criar models/NfceTransmissor.php (stub com transmitir($empresa, $numeroNfce) chamando COM); adicionar appController::nfceEmitir; adicionar leitura de origem em finalizarVenda.
+
+    Testar em homologação (Ambiente=2).
+
+8. Pegadinhas ou decisões não óbvias
+
+    MesaDetalhesModal.jsx (original) tem handleFinalizar só com alert — não é o fechamento real. O correto é MesaDetalhesModal2.jsx + FinalizarVendaModal.jsx.
+
+    SuccessModal é "componente burro" — nunca precisa saber de NFC-e; o pai monta detalhes[].
+
+    pagamentoService.js é o arquivo certo (não mesaService.js).
+
+    finalizarEEmitir só loga falha da NFC-e; venda permanece fechada.
+
+    Correções já aplicadas em NfceFiscal.php: ide_indfinal=1, isReformaAtiva com IS NOT NULL, distribuição proporcional do desconto do cabeçalho, vProd prioriza total_bruto, guard contra status ≥ 100.
+
+    Divergência item × cabeçalho causa rejeição SEFAZ 531/532.
+
+    funcionarios.USER é palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo, não usuarios.codigo.
+
+9. Instruções para a IA no novo chat
+
+    Continuar deste ponto; não reexplicar o que já está pronto.
+
+    Aguardar do usuário: .frm do VB6 com chamadas do componente TecnoSpeed, confirmação dos patches aplicados, e infos do item 6 sobre ambiente PHP.
+
+    Ao receber o .frm: preencher TODOs do NfceTransmissor.php com nomes reais de ProgID, métodos (EnviarNFeSincrono?, EnviarNota?) e propriedades (UF, CNPJ, Ambiente, CaminhoCertificado).
+
+    Não inventar nomes de métodos nem schema de tabela — se faltar, perguntar.
+
+    Manter português, respostas técnicas objetivas com código.
+
+    Se precisar do NfceFiscal.php revisado ou do NfceTransmissor.php stub, pedir ao usuário para colar novamente.
+

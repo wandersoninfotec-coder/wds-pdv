@@ -1,0 +1,293 @@
+Continuando projeto NFC-e
+
+The user is asking for a transfer summary. Let me create a comprehensive update based on what we've learned in this session.
+Documento de Transferência — Facilit NFC-e
+
+Data: Terça-feira, 29/Setembro/2026 (fim do dia)
+Status: Voltando ao estado "pré-regressão". XML assinado, SEFAZ responde cStat=402 (encoding). Achado crítico: PHP está perdendo acentos no TXT (SÃO virou SAO). Precisamos reverter a declaração <?xml e comparar os XMLs VB6 vs PHP byte a byte.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado (extension=php_com_dotnet.dll).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d       ← CONFIRMADO CORRETO (VB6 usa)
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO::ERRMODE_EXCEPTION
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   └── NfceTransmissor.php         ; ⚠️ A REVERTER declaração <?xml
+├── teste_progid.php                ; ⚠️ temporário
+├── teste_props.php                 ; ⚠️ temporário
+├── teste_xml.php                   ; ⚠️ temporário
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    NfceFiscal::prepararTudo() — testado via VB6 autorizando NFC-e ✅
+
+    COM funcionando: instancia, configura diretórios, Software House, servidores SEFAZ, certificado .pfx, gera XML, assina, transmite ✅
+
+    XML gerado (2623 bytes) e assinado (6621 bytes) ✅
+
+    Chave extraída: 51260958717761000149650010000060131011601327 ✅
+
+    Chega na SEFAZ — resposta recebida ✅
+
+5. Comparação VB6 (6014, sucesso) vs PHP (6013, rejeitado)
+TXT — diferenças encontradas
+Campo	VB6	PHP
+xLgr_C06	RUA SÃƒO PAULO (tem acento)	RUA SAO PAULO (acento perdido)
+natOp_B04	VENDA DE MERCADORIA DENTRO DO ESTADO	VENDA DE MERC DENTRO DO ESTADO
+indFinal_B25a	0	1
+Linha em branco antes de CNPJ_C02	❌	✅
+XML assinado — VB6
+
+    Tamanho: 7377 bytes
+
+    Primeiros 40 bytes: 3C 4E 46 65 20 78 6D 6C 6E 73 3D 22 ... = <NFe xmlns="... (SEM <?xml?>)
+
+    Autorizou ✅
+
+Descoberta crítica: o componente não inclui <?xml?> e a SEFAZ aceita assim. Portanto, adicionar <?xml?> não é a solução — é o que quebrou.
+6. PROBLEMA ATUAL
+6.1 Regressão a corrigir
+
+O bloco que adiciona <?xml version="1.0" encoding="UTF-8"?> após o AssinarNota está quebrando o parser local do componente:
+text
+
+could not load xml Falha de validação: documento não contém exatamente um nó raiz
+
+Ação imediata: remover/comentar esse bloco do NfceTransmissor::transmitir().
+6.2 Problema de encoding dos acentos (raiz do cStat=402)
+
+O PHP está perdendo acentos ao gravar o TXT (SÃO → SAO). Isso gera dois problemas:
+
+    SEFAZ vê um XML diferente do que o TXT do VB6 gera
+
+    Possivelmente o componente re-encoda de forma diferente quando há caractere inválido
+
+Causa provável: conexão PDO sem charset=utf8 ou SET NAMES errado, ou mb_convert_encoding no NfceGeradorTxt::salvarArquivo() removendo acentos.
+7. Próximo passo exato
+7.1 Reverter a declaração
+
+No NfceTransmissor::transmitir(), remover este bloco inteiro:
+php
+
+// ❌ REMOVER
+if (strpos($xmlAssinado, '<?xml') !== 0) {
+    $xmlAssinado = '<?xml version="1.0" encoding="UTF-8"?>' . $xmlAssinado;
+    $this->log("Declaração XML adicionada após assinatura");
+}
+
+preg_match_all('/[^\x00-\x7F]/', $xmlAssinado, $matches);
+if (!empty($matches[0])) {
+    $this->log("⚠️ Bytes não-ASCII encontrados: " . count($matches[0]));
+    foreach (array_slice($matches[0], 0, 5) as $c) {
+        $this->log("  Byte: " . sprintf('%02X', ord($c)));
+    }
+} else {
+    $this->log("✅ XML 100% ASCII");
+}
+
+Deixar somente o AssinarNota + log HEX pós-assinar.
+7.2 Adicionar salvamento do XML em disco (igual ao VB6)
+
+Depois de AssinarNota:
+php
+
+$pastaXml = 'C:\\WDS Comercial\\NFCeGerada\\' . date('Y') . '\\' . date('m') . '\\' . date('d');
+if (!is_dir($pastaXml)) @mkdir($pastaXml, 0777, true);
+file_put_contents($pastaXml . '\\' . $this->numeroNfce . '-assinado.xml', $xmlAssinado);
+$this->log("XML assinado salvo em disco");
+
+Depois do EnviarNFSincrono (se autorizar):
+php
+
+file_put_contents($pastaXml . '\\' . $this->numeroNfce . '-autorizado.xml', $xmlRetorno);
+file_put_contents($pastaXml . '\\' . $this->numeroNfce . '-autorizado_ret.xml', $xmlRetorno);
+$this->log("XML autorizado salvo em disco");
+
+7.3 Corrigir encoding dos acentos
+
+Verificar core/Core.php — a conexão PDO precisa ter charset=utf8:
+php
+
+$pdo = new PDO("mysql:host=...;dbname=...;charset=utf8", ...);
+
+Ou, se já existe conexão sem charset:
+php
+
+$pdo->exec("SET NAMES 'utf8'");
+
+Verificar NfceGeradorTxt::salvarArquivo() — a linha mb_convert_encoding pode estar removendo acentos:
+php
+
+// Testar com e sem esta linha
+// $conteudo = mb_convert_encoding($conteudo, 'UTF-8', 'ISO-8859-1');
+
+Verificar o banco:
+sql
+
+SELECT endereco, HEX(endereco) FROM tabempresa WHERE codigo = 1;
+
+Se HEX mostrar 53 C3 83 4F (SÃO em UTF-8 já mal-codificado no banco), o problema está na entrada (gravação). Se mostrar 53 C3 83 C6 92 4F, está pior — dupla codificação.
+7.4 Comparação final
+
+Depois de reverter e salvar XML em disco, rodar:
+powershell
+
+$vb = [System.IO.File]::ReadAllBytes("C:\WDS Comercial\NFCeGerada\2026\09\29\6014-assinado.xml")
+Write-Host "VB6 - size=$($vb.Length) primeiros40=$((($vb[0..39] | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))"
+
+$php = [System.IO.File]::ReadAllBytes("C:\WDS Comercial\NFCeGerada\2026\09\29\6013-assinado.xml")
+Write-Host "PHP - size=$($php.Length) primeiros40=$((($php[0..39] | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))"
+
+7.5 Depois de autorizar
+
+    Patches Electron: pagamentoService.js, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx
+
+    Fix do vendedor: login retornar codigoFuncionario, vendaAbrir rejeitar vendedor <= 0
+
+    Apagar teste_*.php
+
+    Remover debug_raw do nfcePreparar
+
+7.6 Pendências gerais
+
+    Fila/lock (componente não é thread-safe)
+
+    Reforma Tributária por item (simplificada)
+
+    TEF: não iniciado
+
+8. Pegadinhas conhecidas
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê o .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO, não conteúdo.
+
+    lkTXTDataSet = 1.
+
+    VB6 NÃO inclui <?xml?> e a SEFAZ aceita — não adicionar.
+
+    pnfce_versao_esquema = pl_010d — CORRETO (VB6 usa).
+
+    PHP está perdendo acentos — investigar charset PDO e mb_convert_encoding.
+
+    Apache como LocalSystem — usar .pfx em arquivo.
+
+    PDO::ERRMODE_EXCEPTION obrigatório.
+
+    PowerShell: aspas simples, uma linha.
+
+    MesaDetalhesModal2.jsx (não o antigo).
+
+    pagamentoService.js (não mesaService.js).
+
+    Divergência item × cabeçalho → rejeição 531/532.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+9. Instruções para a IA no novo chat
+
+    Preparação fiscal e geração de TXT/XML prontas.
+
+    Componente COM instancia, assina e transmite.
+
+    Bloqueio: cStat=402 (encoding) + regressão causada por <?xml?> adicionado.
+
+Primeira ação:
+
+    Reverter o bloco de adição de <?xml?> no NfceTransmissor::transmitir() — remover completo.
+
+    Adicionar salvamento do XML em disco (assinado + autorizado).
+
+    Investigar por que o PHP perde acentos — checar charset do PDO e mb_convert_encoding.
+
+    Rodar nfceEmitir e comparar XMLs byte a byte.
+
+    Se cStat=402 persistir com XML idêntico ao VB6 → problema está no componente/ambiente.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    Não inventar propriedades — rodar teste_props.php/teste_membros.php.
+
+    Não reintroduzir <?xml?> — o VB6 não usa e autoriza.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php (completo), appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Fim do documento.
+Última atualização: 29/Setembro/2026 — v1.8

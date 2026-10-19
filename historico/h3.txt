@@ -1,0 +1,435 @@
+Documentação Técnica — Emissão NFC-e (Facilit / Facilit App)
+
+Versão: 1.0.0
+Data: Setembro/2026
+Contexto: ERP VB6 + MySQL 4.1 legado (WDS Comercial) migrando para stack PHP + React/Electron
+1. Visão Geral do Projeto
+1.1 Objetivo
+
+Emitir NFC-e (modelo 65) automaticamente no fechamento da venda, tanto pelo Facilit (PDV desktop Electron) quanto pelo Facilit App (React Native/Android). Posteriormente: integração TEF (débito, crédito, PIX).
+1.2 Componentes
+Nome	Stack	Status
+ERP VB6 (legado)	VB6 + MySQL 4.1	Em produção
+Serviço PHP	PHP 7.4+/8.x + PDO + MySQL	Em desenvolvimento
+Facilit App	React Native 0.86 + Expo SDK 57	Pronto (não emite NFC-e)
+Facilit (PDV)	React + Electron	Em construção (emite NFC-e)
+ERP 2.0	PHP (futuro)	Planejado
+1.3 Fluxo de emissão
+text
+
+[Facilit/Electron]  ou  [Facilit App/Android]
+        │
+        ▼ POST /app/finalizarVenda
+[PHP] Grava vendas, receber, recebido, recebido_formas, caixa_movimento
+        │
+        ▼ POST /app/nfceEmitir  (ou nfcePreparar + nfceTransmitir)
+[PHP] NfceFiscal::prepararTudo()  ← ✅ VALIDADO
+        │ popula tab_nfce, nfce_* e dfe_*
+        ▼
+[PHP] NfceTransmissor::transmitir()  ← ❌ PENDENTE
+        │ chama componente TecnoSpeed via COM
+        ▼
+[Componente TecnoSpeed v6.0]  →  SEFAZ
+        │
+        ▼
+[PHP] UPDATE tab_nfce (chave, protocolo, status)
+
+2. Stack e Ferramentas
+
+    Backend: PHP 7.4+/8.x, PDO, MySQL 5.7+/MariaDB, Apache (Windows).
+
+    Mobile: React Native 0.86, Expo SDK 57, Axios, AsyncStorage.
+
+    Desktop: React + Electron (versão NÃO INFORMADA).
+
+    Fiscal: Componente NFC-e TecnoSpeed v6.0 (NFCeX.ocx + NFCeDataSetX.dll), integração via COM/ActiveX.
+
+    Integrador TecnoSpeed: descontinuado (confirmado pelo suporte) — NÃO USAR.
+
+    Certificado: A1, TipoCertificado=File, Repositorio=CURRENT_USER_STORE.
+
+    Ambiente PHP: Windows (mesmo servidor do ERP).
+
+2.1 Configuração fiscal atual (nfceconfig.ini)
+ini
+
+[NFCE]
+UF=MT
+CNPJ=58717761000149
+Ambiente=2                  ; 1=Produção, 2=Homologação
+VersaoManual=6.0
+TipoCertificado=File
+Repositorio=CURRENT_USER_STORE
+DiretorioLog=C:\WDS Comercial\NFCeGerada\Log\
+DiretorioLogErro=C:\WDS Comercial\NFCeGerada\Erros\
+DiretorioTemporario=C:\WDS Comercial\NFCeGerada\Temp\
+DiretorioXmlDestinatario=C:\WDS Comercial\NFCeGerada\XmlDestinatario\
+
+3. Estrutura de Pastas
+text
+
+app_mesas_api/
+├── index.php
+├── core/
+│   └── Core.php                       ; ⚠️ VERIFICAR ATTR_ERRMODE
+├── controllers/
+│   └── appController.php
+├── models/
+│   ├── Vendas.php
+│   ├── Usuario.php
+│   ├── Produto.php
+│   ├── Empresa.php
+│   ├── NfceFiscal.php                 ; ✅ FUNCIONANDO
+│   └── NfceTransmissor.php            ; ❌ A CRIAR
+├── lib/
+│   └── Criptografia.php
+└── logs/
+    └── nfce_fiscal.log
+
+text
+
+src/  (Electron)
+├── components/
+│   ├── MesaDetalhesModal2.jsx         ; tela de mesa (adiciona/remove itens)
+│   ├── FinalizarVendaModal.jsx        ; fechamento real (chama pagamentoService)
+│   ├── SuccessModal.jsx               ; genérico, recebe detalhes[]
+│   └── ClienteModal.jsx
+├── services/
+│   ├── api.js                         ; Axios + interceptors
+│   ├── pagamentoService.js            ; ⚠️ PRECISA PATCH (finalizarEEmitir)
+│   ├── pedidoService.js
+│   └── produtoService.js
+└── context/
+    └── AuthContext.js
+
+4. O que já está pronto e validado
+4.1 Backend — appController.php
+Endpoint	Método	Status
+/app/login	POST	✅
+/app/vendaAbrir	POST	✅
+/app/itemAdicionarSeguro	POST	✅ (com FOR UPDATE)
+/app/verificarStatus	POST	✅
+/app/historicoListar	POST	✅
+/app/historicoDetalhes	POST	✅
+/app/clientesListar	POST	✅
+/app/clienteCadastrar	POST	✅
+/app/municipiosBuscar	POST	✅
+/app/dadosEmpresa	POST	✅
+/app/dadosCaixa	POST	✅
+/app/finalizarVenda	POST	✅ (precisa patch de origem)
+/app/relatoriosVendas	POST	✅
+/app/nfcePreparar	POST	✅ VALIDADO
+/app/nfceEmitir	POST	❌ A criar
+/app/nfceTransmitir	POST	❌ A criar
+/app/diagFiscal	GET	✅ (debug)
+/app/diagMetodos	GET	✅ (debug)
+/app/testeFiscal	GET	✅ (debug)
+4.2 NfceFiscal.php — VALIDADO
+
+prepararTudo($empresa, $venda, $tipoOperacao):
+
+    ✅ Busca venda, itens, emitente, cliente, config
+
+    ✅ Gera número NFC-e (MAX(numero_nfce)+1 ou reaproveita)
+
+    ✅ Guard contra status ≥ 100 (não sobrescreve autorizada)
+
+    ✅ Popula: tab_nfce, nfce_identificacao, nfce_emitente, nfce_destinatario, nfce_produtos, nfce_produtos_impostos_icms, nfce_totais, nfce_totais_formapgto, nfce_informacoescpl
+
+    ✅ Reforma Tributária: dfe_gibsuf, dfe_gibsmun, dfe_gcbs, dfe_class_fiscal, dfe_is, dfe_gibstotal, dfe_gcbstotal
+
+    ✅ Desconto do cabeçalho distribuído proporcionalmente aos itens
+
+    ✅ vProd prioriza total_bruto do item
+
+    ✅ Trata ICMS (CST 00/10/20/70/90/101/201/900), PIS/COFINS
+
+    ✅ Transação (beginTransaction / commit / rollBack)
+
+Teste bem-sucedido: venda 1374, empresa 1 → gerou NFC-e nº 5999 com todas as tabelas populadas corretamente.
+4.3 Electron — funcional
+
+    MesaDetalhesModal2.jsx: lista itens da mesa, adiciona/remove produtos, abre fechamento
+
+    FinalizarVendaModal.jsx: cliente (com obrigatoriedade CPF > R$1000 em MT), desconto, multi-formas de pagamento, troco
+
+    pagamentoService.finalizarVenda: chama /app/finalizarVenda com sucesso
+
+5. Schemas de Tabelas (DESCOBERTOS)
+5.1 nfce_totais
+sql
+
+CREATE TABLE `nfce_totais` (
+  `emp_codigo` INT(11) NOT NULL DEFAULT '0',
+  `numero_nfce` INT(11) NOT NULL DEFAULT '0',
+  `tot_icms_vBC` DOUBLE, `tot_icms_vICMS` DOUBLE,
+  `tot_icms_vBCST` DOUBLE, `tot_icms_vST` DOUBLE,
+  `tot_icms_vProd` DOUBLE, `tot_icms_vFrete` DOUBLE,
+  `tot_icms_vSeg` DOUBLE, `tot_icms_Desc` DOUBLE,
+  `tot_icms_vII` DOUBLE, `tot_icms_vIPI` DOUBLE,
+  `tot_icms_vPIS` DOUBLE, `tot_icms_vCOFINS` DOUBLE,
+  `tot_icms_vOutro` DOUBLE, `tot_icms_vNF` DOUBLE,
+  `vTotTrib` DOUBLE DEFAULT '0',
+  `tot_icms_vFCP` DOUBLE DEFAULT '0',
+  `tot_icms_vFCPST` DOUBLE DEFAULT '0',
+  `tot_icms_vFCPSTRet` DOUBLE DEFAULT '0',
+  `tot_icms_vIPIDevol` DOUBLE DEFAULT '0',
+  PRIMARY KEY (`emp_codigo`,`numero_nfce`)
+) ENGINE=INNODB DEFAULT CHARSET=latin1;
+
+⚠️ Nomes de colunas têm prefixo tot_icms_ — não usar vBC, vProd, etc.
+5.2 nfce_totais_formapgto
+sql
+
+CREATE TABLE `nfce_totais_formapgto` (
+  `emp_codigo` INT(11) NOT NULL DEFAULT '0',
+  `numero_nfce` INT(11) NOT NULL DEFAULT '0',
+  `tot_fp_codigo` INT(11) NOT NULL DEFAULT '0',   -- tPag (1, 4, 5, 17, 99)
+  `tot_fp_descricao` VARCHAR(60),
+  `tot_fp_valor` DOUBLE,
+  `tot_fp_vTroco` DOUBLE DEFAULT '0',
+  PRIMARY KEY (`emp_codigo`,`numero_nfce`,`tot_fp_codigo`)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+⚠️ tot_fp_codigo é INT — o código 01 vira 1. A DLL TecnoSpeed faz o zero-padding na hora de gerar o XML.
+5.3 Códigos de forma de pagamento (tPag SEFAZ)
+Código	Significado
+1	Dinheiro
+3	Cartão de Crédito
+4	Cartão de Débito
+17	PIX
+99	Outros
+
+Atenção: o nfce_formapgto_vinculada em tab_formapagamento deve estar preenchido com esses valores.
+6. Correções aplicadas em NfceFiscal.php
+
+Lista do que foi corrigido ao longo do desenvolvimento:
+
+    ide_indfinal = 1 (era string 'sim')
+
+    isReformaAtiva com IS NOT NULL
+
+    Desconto do cabeçalho distribuído proporcionalmente entre itens
+
+    vProd prioriza total_bruto (evita divergência de centavos)
+
+    Guard contra status ≥ 100 (não sobrescreve NFC-e autorizada)
+
+    insc_est normalizado sem pontuação (soNumeros)
+
+    nfce_totais: colunas com prefixo tot_icms_ (tot_icms_vBC, tot_icms_vProd, tot_icms_vSeg, tot_icms_Desc, etc.)
+
+    nfce_totais_formapgto: colunas tot_fp_codigo, tot_fp_descricao, tot_fp_valor, tot_fp_vTroco. tot_fp_codigo convertido para INT.
+
+7. Pendências
+7.1 Críticas
+
+    □
+
+    core/Core.php: garantir PDO::ATTR_ERRMODE = PDO::ERRMODE_EXCEPTION. Sem isso, erros de SQL somem silenciosamente — foi a causa das duas tabelas falharem sem aviso.
+    □
+
+    Criar models/NfceTransmissor.php com chamada COM real. Depende dos nomes exatos dos métodos/propriedades do componente TecnoSpeed (.frm do VB6).
+    □
+
+    appController::nfceEmitir — endpoint que chama prepararTudo + transmitir.
+    □
+
+    Patch origem em finalizarVenda — gravar em vendas.origem, recebido.origem_recebimento, caixa_movimento.origem.
+    □
+
+    Patch pagamentoService.js — adicionar emitirNfce e finalizarEEmitir.
+    □
+
+    Patch FinalizarVendaModal.jsx — trocar finalizarVenda por finalizarEEmitir, passar origem: 'FACILIT'.
+    □
+
+    Patch MesaDetalhesModal2.jsx — mesclar detalhesExtras (NFC-e) no SuccessModal.
+    □
+
+    Remover debug do nfcePreparar (campos debug_raw, debug_method, etc.).
+
+7.2 Investigação necessária
+
+    □
+
+    Confirmar se php_com_dotnet está habilitado: php -m | findstr com_dotnet
+    □
+
+    Descobrir ProgID exato do componente: regedit → HKEY_CLASSES_ROOT\NFCeX.spdNFCeX
+    □
+
+    Confirmar formato do certificado (.pfx em arquivo ou só Windows Store)
+    □
+
+    Confirmar nomes de métodos do componente: EnviarNFe? EnviarNFeSincrono? Transmitir?
+    □
+
+    Confirmar nomes das propriedades: UF, CNPJ, Ambiente, CaminhoCertificado, SenhaCertificado, ConfigurarSoftwareHouse?
+    □
+
+    Confirmar colunas de retorno em tab_nfce (chave_nfce, protocolo_nfce, mensagem_sefaz, data_autorizacao)
+
+7.3 Futuras
+
+    □
+
+    Fila/lock para emissões concorrentes (componente TecnoSpeed não é thread-safe)
+    □
+
+    TEF (débito, crédito, PIX)
+    □
+
+    Impressão de DANFCE
+    □
+
+    Modo contingência (SEFAZ offline)
+
+8. Como Testar
+8.1 Teste de sanidade
+powershell
+
+$r = Invoke-WebRequest -Uri 'http://SEU_IP/app_mesas_api/app/diagFiscal' -Method GET
+$r.Content
+
+Esperado: arquivo_existe: true, instancia_ok: true, teste_interno.db_existe: true.
+8.2 Teste de preparação
+powershell
+
+$body = '{"empresa":1,"venda":1374,"tipo_operacao":"FACILIT"}'
+$r = Invoke-WebRequest -Uri 'http://SEU_IP/app_mesas_api/app/nfcePreparar' `
+     -Method POST -ContentType 'application/json' -Body $body
+$r.Content
+
+Esperado: {"sucesso":true,"numero_nfce":X,"mensagem":"NFC-e preparada para emissão"}.
+8.3 Validação SQL
+sql
+
+-- Totais
+SELECT * FROM nfce_totais WHERE emp_codigo=1 AND numero_nfce=X;
+
+-- Formas de pagamento
+SELECT * FROM nfce_totais_formapgto WHERE emp_codigo=1 AND numero_nfce=X;
+
+-- Conferência: soma das formas = vNF = vendas.total
+SELECT
+  (SELECT SUM(tot_fp_valor) FROM nfce_totais_formapgto WHERE emp_codigo=1 AND numero_nfce=X) AS soma_formas,
+  (SELECT tot_icms_vNF FROM nfce_totais WHERE emp_codigo=1 AND numero_nfce=X) AS vNF,
+  (SELECT total FROM vendas WHERE empresa=1 AND venda=1374) AS total_venda;
+
+Regra de ouro: os três valores devem bater (tolerância R$0,01). Se não baterem, a SEFAZ rejeita (531/532).
+8.4 Log
+text
+
+app_mesas_api/logs/nfce_fiscal.log
+
+Contém passo a passo: "INICIANDO PREPARAÇÃO", "Número NFC-e: X", "Item N: nome", "RTC origem=...", "nfce_totais: vProd=X vNF=Y", "⚠️ ATENÇÃO: Soma formas...".
+9. Pegadinhas Conhecidas
+
+    MesaDetalhesModal.jsx (original) é versão antiga com alert("Em breve"). O correto é MesaDetalhesModal2.jsx.
+
+    pagamentoService.js é o service correto (não mesaService.js).
+
+    SuccessModal é componente genérico — nunca precisa saber de NFC-e. O pai monta o array detalhes[].
+
+    finalizarEEmitir só loga falha da NFC-e. Venda permanece fechada — não desfaz pagamento.
+
+    PowerShell vs cmd: curl é alias de Invoke-WebRequest no PowerShell. Usar curl.exe ou Invoke-WebRequest.
+
+    Quoting em PowerShell: usar aspas simples ('...'). PS não interpreta \ como escape. Comandos em uma linha só (evitar backtick de continuação).
+
+    funcionarios.USER é palavra reservada SQL — usar backticks.
+
+    vendas.vendedor = funcionarios.codigo, não usuarios.codigo.
+
+    tot_fp_codigo é INT — 01 vira 1. A TecnoSpeed faz padding.
+
+    ide_indfinal = 1 (int), não 'sim'.
+
+    Desconto do cabeçalho vs desconto dos itens: precisa distribuir proporcionalmente, senão rejeição 531/532.
+
+    Componente TecnoSpeed não é thread-safe — emissões concorrentes darão pau.
+
+    Integrador TecnoSpeed descontinuado — só COM/ActiveX.
+
+10. Instruções para o Próximo Chat / Próximo Programador
+10.1 Como continuar
+
+    Confirmar ambiente com o usuário:
+
+        PHP está no Windows? (provavelmente sim)
+
+        php_com_dotnet habilitado?
+
+        Certificado em arquivo .pfx ou só Windows Store?
+
+    Pedir .frm do VB6 que emite NFC-e hoje. Precisa dos nomes exatos de:
+
+        CreateObject("...") — ProgID
+
+        Métodos de envio (EnviarNFe, etc.)
+
+        Propriedades (UF, CNPJ, Ambiente, CaminhoCertificado, etc.)
+
+    Criar models/NfceTransmissor.php com base nos nomes reais. Estrutura já definida em chat anterior:
+
+        transmitir($empresa, $numeroNfce) → retorna {sucesso, status, chave, protocolo, mensagem}
+
+        inicializarCom() → new COM("NFCeX.spdNFCeX")
+
+        configurarCom($config) → seta propriedades
+
+        enviarNfce($empresa, $numeroNfce) → chama método de envio
+
+        atualizarStatus(...) → UPDATE em tab_nfce
+
+    Adicionar appController::nfceEmitir que chama prepararTudo + transmitir.
+
+    Aplicar os 4 patches (pagamentoService, FinalizarVendaModal, MesaDetalhesModal2, origem em finalizarVenda).
+
+    Testar em homologação (Ambiente=2) antes de produção.
+
+10.2 Princípios a manter
+
+    Nunca usar Ambiente=1 (produção) até homologação estar 100%.
+
+    Sempre backup do banco antes de testar NFC-e.
+
+    Sempre validar que nfce_totais.tot_icms_vNF = vendas.total (tolerância R$0,01).
+
+    Nunca inventar nomes de colunas — sempre DESCRIBE tabela primeiro.
+
+    Sempre com PDO::ERRMODE_EXCEPTION — erros silenciosos custam caro em fiscal.
+
+    Venda fechada NÃO pode ser desfeita se NFC-e falhar. Só logar e permitir reenvio.
+
+10.3 Arquivos-chave para o próximo programador pedir
+
+Se este chat chegar ao limite, pedir ao usuário para colar:
+
+    NfceFiscal.php (versão mais recente, já com correções de nfce_totais e nfce_totais_formapgto)
+
+    appController.php (para ver finalizarVenda e nfcePreparar)
+
+    FinalizarVendaModal.jsx
+
+    MesaDetalhesModal2.jsx
+
+    pagamentoService.js
+
+    .frm do VB6 (o arquivo que emite NFC-e) — quando o usuário conseguir
+
+    DESCRIBE tab_nfce;
+
+    Saída de php -m | findstr com_dotnet
+
+10.4 Estado emocional do projeto
+
+    Preparação fiscal: 100% pronta e validada
+
+    Transmissão: 0% (só falta descobrir nomes do componente TecnoSpeed)
+
+    Após transmissão, restam ~1 dia de trabalho para plugar no Electron e testar em homologação
+
+Fim do documento.
+Última atualização: Setembro/2026

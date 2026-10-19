@@ -1,0 +1,323 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Sexta-feira, 02/Outubro/2026
+Status: 🎉 Emissão + contingência + alerta no PDV + impressão do cupom 100% funcionais. Cupom renderiza com layout próprio (80mm), dados corretos, QR Code, aviso de homologação. Frontend ainda sem Electron (React + Vite no navegador).
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Vite, sem Electron ainda) — PDV desktop.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+Backend
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado (charset latin1).
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    Log PHP: C:\xampp\php\logs\php_error_log (não é o log do Apache).
+
+    display_errors=On, log_errors=On.
+
+Frontend
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20.
+
+    Pasta: D:\ANDROID\wds-pdv
+
+    Sem Electron ainda — roda via npm run dev.
+
+    src/main.jsx = entry point do React (não é o main.js do Electron).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+    Destinatário: C:\WDS Comercial\NFCeGerada\XmlDestinatario\<chave>-nfce.xml
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/                      ; C:\xampp\htdocs\app_mesas_api
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO charset=latin1; roteamento call_user_func_array
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   ├── NfceTransmissor.php         ; ✅ VALIDADO
+│   └── Produto.php                 ; ✅ VALIDADO
+├── teste_*.php                     ; temporários (apagar)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+D:\ANDROID\wds-pdv\  (React + Vite)
+├── src/
+│   ├── App.jsx                     ; ✅ renderiza <AlertaContingencia />
+│   ├── main.jsx                    ; entry point React
+│   ├── components/
+│   │   ├── AlertaContingencia.jsx  ; ✅ faixa vermelha/amarela + auto-reprocessa
+│   │   ├── AlertaContingencia.css
+│   │   ├── MesaDetalhesModal2.jsx  ; ✅ passa BotaoImprimirCupom como children
+│   │   ├── FinalizarVendaModal.jsx ; ✅ chama finalizarEEmitir
+│   │   ├── SuccessModal.jsx        ; ✅ aceita children
+│   │   ├── SuccessModal.css
+│   │   └── BotaoImprimirCupom.jsx  ; ✅ funcional
+│   └── services/
+│       ├── pagamentoService.js     ; ✅
+│       ├── impressaoService.js     ; ✅ com gerarHtmlCupom (80mm)
+│       └── api.js
+
+4. O que já está pronto/validado
+Backend ✅
+
+    COM TecnoSpeed: instancia, configura, gera XML, assina, transmite
+
+    NfceFiscal::prepararTudo(...) — aceita tpEmis=9
+
+    NfceTransmissor:
+
+        detectarStatusSefaz() → {online, cStat, xMotivo, tMed, mensagem}
+
+        transmitir(...) — modo normal + contingência
+
+        transmitirXmlAssinado(...) — reprocessamento
+
+        salvarXmlAutorizado() — monta nfeProc
+
+Endpoints ✅
+Endpoint	Função	Status
+POST /app/finalizarVenda	Fecha venda	✅
+POST /app/nfcePreparar	Prepara fiscais	✅
+POST /app/nfceEmitir	Prepara + transmite (fallback contingência)	✅
+POST /app/nfceStatusSefaz	Consulta status + pendentes	✅
+POST /app/nfceReprocessarContingencia	Transmite contingências	✅
+POST /app/nfceDadosImpressao	Dados do cupom	✅
+
+Parâmetro de teste: forcar_contingencia: true no nfceEmitir.
+Frontend ✅
+
+    AlertaContingencia no topo (vermelha/amarela, 5min, auto-reprocessa)
+
+    Fluxo: finaliza → emite → SuccessModal mostra "✅ Autorizada" + protocolo + chave + botão "🖨️ Imprimir Cupom"
+
+    Cupom renderizado em janela separada via window.print() (fallback navegador)
+
+    Layout do cupom 80mm funcionando com dados corretos
+
+Persistência ✅
+
+    tab_nfce.xml_assinado, xml_autorizado, xml_autorizado_retorno, caminho_txt, chave_acesso, nro_protocolo_autorizacao
+
+    Disco: -assinado.xml, -autorizado.xml, -autorizado_ret.xml + XmlDestinatario\<chave>-nfce.xml
+
+Status tab_nfce.status_nfce
+
+0=Pendente | 1=Validada | 3=Autorizada | 4=Rejeitada | 8=Contingência
+Casos validados
+
+1 item padrão | Multi-itens | NCM específico | Fluxo via navegador | Contingência + reprocessamento | Impressão do cupom → todos ✅
+5. Tabelas-chave do RTC
+
+    dfe_ncm_nbs_ibs_cbs → NCM → cst_ibs_cbs + cclass_trib (vigência)
+
+    tab_tipooperacao_rtc → alíquotas por CST_IBS_CBS + cclasstrib
+
+    Typos do schema:
+
+        terminino_vigencia_ncm_nbs_ibs_cbs (com "no")
+
+        dfe_gibsuf.pibsuf, dfe_gibsmun.pibsmun (minúsculo); dfe_gibsuf.vIBSUF (maiúsculo)
+
+6. Status da SEFAZ
+cStat	Significado
+107	Serviço em Operação → online
+108	Paralisado Momentaneamente → contingência
+109	Paralisado sem Previsão → contingência
+7. Aprendizados recentes (bugfix da impressão)
+7.1 json_encode retornando false silenciosamente
+
+    Causa: $nfce['xml_autorizado'] (8 KB) tinha bytes inválidos em UTF-8 → json_encode falhava → echo false imprime vazio
+
+    Solução:
+
+        Removido xml_autorizado do SELECT (substituído por CASE WHEN ... LIKE '%<tpEmis>9</tpEmis>%' THEN 1 ELSE 0 END AS contingencia)
+
+        Uso de JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE
+
+        sanitize via closure com mb_convert_encoding($v, 'UTF-8', 'ISO-8859-1')
+
+7.2 catch (Exception $e) não pega tudo
+
+    Em PHP 7.1, Error e TypeError não estendem Exception
+
+    Usar sempre catch (Throwable $t) em métodos críticos
+
+7.3 $dest = $sql->fetch(...) retorna false quando vazio
+
+    Correção: $dest = $sql->fetch(PDO::FETCH_ASSOC) ?: null;
+
+    Para o frontend, null é tratável; false não
+
+8. PRÓXIMO PASSO
+
+Fase 1 (impressão no navegador) concluída. Decisões pendentes do usuário:
+
+    Aceitar o cupom como está ou continuar polindo?
+
+        Usuário disse "vou deixar assim por enquanto" — layout OK por ora
+
+    Fase 2 — empacotar Electron (para impressão silenciosa sem diálogo)
+
+        Instalar electron + electron-builder + concurrently
+
+        Criar electron/main.cjs + electron/preload.cjs
+
+        Adicionar IPC imprimir-html
+
+        Ajustar vite.config.js (base path) e package.json
+
+9. Roadmap
+Prioridade	Item	Status
+🔴 1	Empacotar Electron + IPC (impressão silenciosa)	Próximo
+🟡 2	Painel de NCMs não cadastrados	Planejado
+🟡 3	Tela de notas emitidas (listar, reimprimir, baixar XML)	Pendente
+🟢 4	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 5	Fix do vendedor (codigoFuncionario)	Pendente
+🟢 6	QR Code oficial (CSC + hash SHA-1)	Pendente
+⚪	Cancelamento	Sprint separada
+⚪	TEF Sitef	Próxima sprint
+9.1 Painel de NCMs não cadastrados
+
+Contexto: o log mostra casos de buscarRtcPorNcm(NCM): NCM nao encontrado ou fora de vigencia — nesses casos a nota autoriza com classificação padrão.
+
+Funcionalidades:
+
+    Listar NCMs em produtos que não existem em dfe_ncm_nbs_ibs_cbs (ou fora de vigência)
+
+    Alerta quando uma NFC-e usa o padrão por falta de cadastro específico
+
+    Cadastro rápido do NCM na tabela
+
+9.2 Melhorias de layout do cupom (backlog)
+
+    Chave de acesso com quebra por grupo de 4 (evitar "5129" órfão)
+
+    QR Code menor (~90px)
+
+    padding-bottom no bloco de item
+
+    margin maior no "Protocolo"
+
+10. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf, pibsmun (minúsculo), vIBSUF (maiúsculo). Sempre SHOW COLUMNS ou array_change_key_case.
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    🔴 PHP 7.1.9 — catch (Throwable $t) cobre Error/TypeError.
+
+    Log PHP em C:\xampp\php\logs\php_error_log.
+
+    json_encode falha silenciosamente quando há bytes inválidos — usar JSON_PARTIAL_OUTPUT_ON_ERROR + mb_convert_encoding.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> antes de assinar.
+
+    SEFAZ reporta erros pelo protNFe.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório mesmo zerado.
+
+    Prioridade classificação: produto → NCM → padrão.
+
+    StatusDoServico (não StatusServico).
+
+    Projeto é React + Vite — sem Electron.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+11. Instruções para a IA no novo chat
+
+    Sistema 100% funcional: emissão, multi-itens, NCM, contingência, alerta no PDV, reprocessamento manual/auto, impressão do cupom via navegador.
+
+    Próximo passo: empacotar Electron (Fase 2) para impressão silenciosa; ou iniciar painel de NCMs; ou tela de notas.
+
+    Não refatorar NfceFiscal, NfceGeradorTxt, NfceTransmissor, Produto sem motivo — estão validados.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas em código.
+
+    SEMPRE normalizar chaves de arrays PDO (array_change_key_case).
+
+    SEMPRE usar catch (Throwable $t) em métodos críticos.
+
+    SEMPRE usar JSON_PARTIAL_OUTPUT_ON_ERROR quando o payload puder ter caracteres problemáticos.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, Produto.php, appController.php, AlertaContingencia.jsx, App.jsx, MesaDetalhesModal2.jsx, SuccessModal.jsx, impressaoService.js, pagamentoService.js.
+
+Estado: 🎉 Backend + Frontend completos — emissão + contingência + impressão. Foco em empacotar Electron e features de produção (painel NCM, tela de notas, e-mail).
+
+Fim do documento.
+Última atualização: 02/Outubro/2026 — v8.0
+
+Contador resetado: mensagem 1 de 10. Próximo resumo na 10ª.

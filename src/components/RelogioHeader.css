@@ -1,0 +1,33 @@
+/* src/components/RelogioHeader.css */
+
+.relogio-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  background-color: transparent;   /* ✅ Fundo transparente */
+  border: none;                     /* ✅ Sem borda */
+}
+
+.relogio-data {
+  font-size: 11px;
+  font-weight: 600;
+  color: #95a5a6;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+.relogio-hora {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.relogio-hora.tema {
+  color: var(--relogio-cor, #2c3e50);
+}

@@ -1,0 +1,34 @@
+Bom dia. Estou abrindo este novo chat para tentar dar continuidade em um projeto que começamos anteriormente porem o chat finalizou por limite e não consigo continuar por lá.
+Resumo: Eu tenho um ERP em vb6 com mysql 4.1 rodando. Nesse erp eu tenho um PDV e um controle de mesas. Tenho um serviço em php, que faz a comunicação do banco de dados
+com um app de controle de mesas. Neste projeto nós fizemos um novo app de controle de mesas em react nativ. O mesmo ficou pronto e funcional. Enviarei a documentação do mesmo.
+Depois que terminamos, começamos a produzir uma versão do controle de mesas com React, com a intensão de deixa-lo bem completo, desde recebimento via tef até a emissão de NFS-e.
+Este projeto também já ficou com a parte estrutural pronta, com login, dashboard, lista de mesas, abertura e fechamento. No fechamendo conseguimos cadastrar clientes, se necessário,
+das descontos, se permitidos, e até mesmo pagar em duas ou mais formas de pagamentos. Essa parte ok. Ela está usando o mesmo serviço em php. As vendas feitas tanto pelo app
+quanto pelo controle de mesas, persistem nas mesmas tabelas do meu Erp, alimentando o financeiro, caixa, estoque e tudo mais. Chegamos na parte em que começariamos a preencher as
+tabelas de emissão da Nfce e chegamos ao limite do chat. Deu tempo de deixarmos o model NfceFiscal.php pronto. Nele já temos a estrutura da tabela que vamos precisar alimentar. Para 
+transmitir a NFce usaremos uma dll da tecnosped. A nossa ideia é transformar o sistema em um executavel usando Electron. 
+Projeto:
+	App controle de mesas(Android)-> Pronto
+	Serviço em PHP: Em desenvolvimento(A parte que conversa unicamente com o app, está 100%)
+	App React(Electron)
+		* Login OK( No login carregamos alguma permissoes
+                          * Dashboard OK
+                          * Tela de mesas OK (Permite abrir, editar e fechar mesas)
+		* Modal de lançar itens na venda OK. com pesquisa de produtos, botão + e - pra quantidade e permite editar para casos de quantidade quebrada)
+                          * Modal de fechamento OK. 
+			a) (Permite trocar o cliente de Consumidor final, para algum cliente pesquisado no banco ou mesmo cadastrar um novo)
+			b) Permite dar desconto, baseado nos valores possíveis, pesquisados no banco de dados
+			c) Permite lançar mais de uma forma de pagamento
+			d) Tem 4 botoe com as formas de pagamento, sendo Dinheiro(codigo 1), Credito(codigo 4), débito(codigo5) e PIX(codigo 117)
+			c) Ao final grava as tabelas, vendas_formas, receber, recebido e recebido formas
+
+Pra onde vamos
+	Emissão de NFCe
+		* Ja temos uma classe no nosso serviço php, com as tabelas que precisamos alimenta, passando a venda.
+
+
+	Recebimento via TEF(debido, credito e pix)
+		* a começar
+
+	Obs.: Em anexo, mandarei a documetação do app, que tenho e a ultima classe que mencionei, além da tela de fechamento da venda, pra se familisar e continuarmos, ok.
+		              

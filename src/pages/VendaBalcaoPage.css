@@ -1,0 +1,6 @@
+.vb-container { min-height: 100vh; background: #f4f6fa; display: flex; flex-direction: column; }
+.vb-loading { padding: 60px; text-align: center; color: #7f8c8d; font-weight: 600; }
+.vb-erro { padding: 60px 40px; text-align: center; }
+.vb-erro-titulo { font-size: 20px; font-weight: 700; color: #c0392b; margin-bottom: 12px; }
+.vb-erro-msg { color: #7f8c8d; margin-bottom: 24px; }
+.vb-erro-btn { padding: 12px 24px; background: #ecf0f1; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; }

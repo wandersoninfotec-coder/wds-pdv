@@ -1,0 +1,150 @@
+.cx-container {
+  min-height: 100vh;
+  background: #f4f6fa;
+  display: flex;
+  flex-direction: column;
+}
+.cx-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.cx-title { flex: 1; font-size: 22px; font-weight: 600; }
+.cx-voltar { background: none; border: none; cursor: pointer; font-size: 14px; }
+.cx-filtros { display: flex; gap: 12px; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; }
+.cx-filtros label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.cx-filtros input { padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; }
+.cx-btn-buscar { padding: 8px 16px; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.cx-grid-wrap { overflow-x: auto; border: 1px solid #eee; border-radius: 8px; }
+.cx-grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cx-grid th { background: #f7f7f7; padding: 10px; text-align: left; font-weight: 600; border-bottom: 1px solid #eee; }
+.cx-grid td { padding: 8px 10px; border-bottom: 1px solid #f2f2f2; }
+.cx-grid tr:hover { background: #fafafa; }
+.cx-linha-estornada { opacity: 0.5; text-decoration: line-through; }
+.cx-right { text-align: right; }
+.cx-entrada { color: #27ae60; font-weight: 600; }
+.cx-saida { color: #c0392b; font-weight: 600; }
+.cx-historico { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-vazio { text-align: center; padding: 40px; color: #999; }
+.cx-rodape { display: flex; gap: 32px; padding: 14px 0; font-size: 14px; border-top: 1px solid #eee; }
+.cx-rodape span { color: #666; margin-right: 6px; }
+.cx-acoes { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.cx-btn { padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.cx-btn-cinza { background: #ecf0f1; color: #333; }
+.cx-btn-vermelho { background: #e74c3c; color: white; }
+.cx-erro { background: #fdecea; color: #c0392b; padding: 10px 14px; border-radius: 6px; margin-bottom: 12px; }
+
+/* ============ HEADER — usuário / avatar / sair ============ */
+.cx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e0e5ec;
+  gap: 16px;
+}
+
+.cx-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cx-user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.cx-user-name {
+  font-weight: 700;
+  font-size: 14px;
+  color: #2c3e50;
+  text-transform: uppercase;
+}
+
+.cx-user-role {
+  font-size: 11px;
+  color: #7f8c8d;
+}
+
+.cx-user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cx-btn-sair {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+.cx-btn-sair:hover { background: #c0392b; }
+
+.cx-status-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e0e5ec;
+  flex-wrap: wrap;
+}
+.cx-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+.cx-status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cx-status-texto {
+  font-size: 13px;
+  color: #2c3e50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cx-status-alerta { color: #d68910; font-weight: 600; }
+.cx-status-acoes { display: flex; gap: 8px; flex-shrink: 0; }
+.cx-status-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+}
+.cx-status-btn-abrir { background: #27ae60; }
+.cx-status-btn-abrir:hover { filter: brightness(0.9); }
+.cx-status-btn-fechar { background: #c0392b; }
+.cx-status-btn-fechar:hover { filter: brightness(0.9); }
+
+.cx-status-btn-perigo-pulse {
+  background: #c0392b;
+  color: #fff;
+  animation: cxPulse 1.5s ease-in-out infinite;
+}
+.cx-status-btn-perigo-pulse:hover { filter: brightness(0.9); }
+@keyframes cxPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.6); }
+  50%      { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); }
+}

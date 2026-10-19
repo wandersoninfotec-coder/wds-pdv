@@ -1,0 +1,36 @@
+/* src/components/CancelarNotaModal.css */
+.cnm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 4000; padding: 20px;
+}
+.cnm-content {
+  background: #fff; border-radius: 16px;
+  width: 100%; max-width: 480px;
+  padding: 24px 28px;
+}
+.cnm-title { font-size: 18px; margin: 0 0 12px; color: #c0392b; }
+.cnm-aviso {
+  background: #fdecea; padding: 12px 14px; border-radius: 8px;
+  font-size: 13px; color: #c0392b; margin-bottom: 16px;
+}
+.cnm-label {
+  display: block; font-size: 12px; text-transform: uppercase;
+  color: #7f8c8d; font-weight: 700; margin-bottom: 6px;
+}
+.cnm-input {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid #d1d9e0; border-radius: 8px;
+  font-family: inherit; font-size: 14px; resize: vertical;
+}
+.cnm-contador { text-align: right; font-size: 11px; color: #95a5a6; margin-top: 4px; }
+.cnm-erro { background: #fdecea; color: #c0392b; padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 13px; }
+.cnm-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+.cnm-btn {
+  padding: 10px 18px; border: none; border-radius: 8px;
+  font-weight: 700; cursor: pointer; font-size: 14px; color: #fff;
+}
+.cnm-btn-cinza { background: #95a5a6; }
+.cnm-btn-vermelho { background: #e74c3c; }
+.cnm-btn:disabled { opacity: 0.6; cursor: not-allowed; }

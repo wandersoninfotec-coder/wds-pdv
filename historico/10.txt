@@ -1,0 +1,289 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Terça-feira, 29/Setembro/2026
+Status: XML assinado e 100% ASCII, mas SEFAZ rejeita com cStat=402 (encoding) quando sem declaração <?xml?> e o parser local quebra quando adicionada. Descoberta crítica: pnfce_versao_esquema = pl_010d (esquema não-padrão — provavelmente a causa raiz).
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (não usar fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como serviço LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado (extension=php_com_dotnet.dll).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\Conversor\NFCeDataSets.xml
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2 (homolog)
+
+Config fiscal atual (importante!)
+text
+
+pnfce_versao                = 4.00
+pnfce_versao_esquema        = pl_010d       ← ⚠️ incomum (o padrão seria pl_009_V4)
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO::ERRMODE_EXCEPTION
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   └── NfceTransmissor.php         ; ⚠️ em ajuste (encoding)
+├── teste_progid.php                ; ⚠️ temporário
+├── teste_props.php                 ; ⚠️ temporário
+├── teste_xml.php                   ; ⚠️ temporário
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    NfceFiscal::prepararTudo() — testado via VB6 autorizando NFC-e ✅.
+
+    COM funcionando:
+
+        new COM('NFCex.spdNFCeX') ✅
+
+        Diretórios setados ✅
+
+        ConfigurarSoftwareHouse ✅
+
+        Servidores SEFAZ ✅
+
+        Certificado .pfx carregado ✅
+
+    XML gerado (2623 bytes) e assinado (6621 bytes) ✅
+
+    Chave extraída: 51260958717761000149650010000060131011601327 ✅
+
+    XML 100% ASCII (nenhum byte não-ASCII) ✅
+
+    Chega na SEFAZ — resposta recebida (286 bytes) ✅
+
+5. Arquitetura confirmada
+text
+
+[PHP] lê tabelas nfce_* → gera TXT                 ✅
+[COM] ConverterLoteParaXml(CAMINHO, 1, esquema) → <infNFe>  ✅
+[COM] AssinarNota(<infNFe>) → <NFe>...</NFe>       ✅
+[COM] EnviarNFSincrono('1', XML, false) → SEFAZ    ✅ (chega)
+[PHP] parseia cStat/xMotivo/nProt → UPDATE         ✅
+
+Métodos descobertos:
+
+    NFCe.ConverterLoteParaXml(caminho, lkTXTDataSet=1, esquema)
+
+    NFCe.AssinarNota(xml)
+
+    NFCe.EnviarNFSincrono('1', xml, false)
+
+    NFCe.ConfigurarSoftwareHouse(cnpj, token)
+
+    Propriedades confirmadas: DiretorioTemplates, DiretorioEsquemas, DiretorioLog, DiretorioLogErro, DiretorioTemporario, DiretorioXmlDestinatario, TipoCertificado, CaminhoCertificado, SenhaCertificado, Ambiente, UF, CNPJ, ArquivoServidoresHom, ArquivoServidoresProd, ValidarEsquemaAntesEnvio.
+
+Status tab_nfce.status_nfce: 0=pendente, 1=validada, 3=autorizada, 4=rejeitada, 8=contingência.
+6. PROBLEMA ATUAL — conflito declaração × parser
+Comportamento observado
+Cenário	Parser local	SEFAZ
+XML sem <?xml?>	✅ OK	❌ cStat=402 (encoding)
+XML com <?xml?> (após assinar)	❌ "documento não contém exatamente um nó raiz"	(não chega)
+Diagnóstico
+
+    ConverterLoteParaXml retorna fragmento <infNFe ...> (sem wrapper <NFe>, sem declaração).
+
+    AssinarNota embrulha em <NFe xmlns="...">...</NFe> mas não inclui <?xml version="1.0" encoding="UTF-8"?>.
+
+    Sem declaração → SEFAZ 402 (assume ISO-8859-1).
+
+    Com declaração prependada → componente rejeita.
+
+    Suspeita principal: pnfce_versao_esquema = pl_010d está errado (padrão seria pl_009_V4). Isso pode estar fazendo o componente usar um template/conversor que gera XML em Latin1.
+
+7. Próximo passo exato
+7.1 Confirmar o esquema correto
+
+O valor pl_010d é atípico. Precisa descobrir o correto:
+
+    Olhar no VB6 onde pnfce_versao_esquema é lido (busca por pnfce_versao_esquema no código VB6)
+
+    Verificar se há outro valor esperado (provavelmente pl_009_V4)
+
+    Consultar com a TecnoSpeed se o componente v6.0 usa pl_009_V4
+
+Teste rápido: alterar no banco para pl_009_V4 e rodar de novo:
+sql
+
+UPDATE param_nfce SET pnfce_versao_esquema = 'pl_009_V4' WHERE emp_codigo = 1;
+
+7.2 Testar as 3 hipóteses em ordem
+
+Hipótese A — ValidarEsquemaAntesEnvio
+Adicionar no inicializarCom():
+php
+
+$this->com->Ambiente = 2;
+$this->com->UF       = 'MT';
+$this->com->CNPJ     = '58717761000149';
+$this->com->ValidarEsquemaAntesEnvio = 'sim';
+
+Hipótese B — declaração ANTES de assinar
+php
+
+$xml = $this->com->ConverterLoteParaXml($caminhoTxt, 1, $this->versaoEsquema);
+if (strpos($xml, '<?xml') !== 0) {
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . $xml;
+}
+$xmlAssinado = $this->com->AssinarNota($xml);
+
+Hipótese C — ajustar esquema no banco (item 7.1)
+7.3 Se ainda 402
+
+Inspecionar os últimos 40 bytes do XML assinado (pra descartar lixo no fim):
+php
+
+$this->log("XML ultimos 40 bytes HEX: " . implode(' ', str_split(bin2hex(substr($xmlAssinado, -40)), 2)));
+
+Esperado terminar em 3c 2f 4e 46 65 3e (</NFe>).
+7.4 Depois de autorizar (cStat=100)
+
+    Patches Electron:
+
+        pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+
+        FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem:'FACILIT'
+
+        MesaDetalhesModal2.jsx: mesclar detalhesExtras no SuccessModal
+
+    Fix do vendedor:
+
+        login retornar codigoFuncionario
+
+        MesaDetalhesModal2 usar user?.codigoFuncionario || 1
+
+        vendaAbrir rejeitar vendedor <= 0
+
+    Patch de origem em finalizarVenda
+
+    Apagar teste_progid.php, teste_props.php, teste_xml.php
+
+    Remover debug_raw/debug_method do nfcePreparar
+
+7.5 Pendências gerais
+
+    Fila/lock para concorrência (componente não é thread-safe)
+
+    Reforma Tributária por item no TXT está simplificada
+
+    TEF: não iniciado
+
+8. Pegadinhas conhecidas
+
+    PHP 7.1.9 — sem fn(), typed properties, trailing commas.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê o .ini — todas as propriedades via COM.
+
+    extension=php_com_dotnet.dll (com .dll).
+
+    ConverterLoteParaXml recebe CAMINHO (não conteúdo).
+
+    lkTXTDataSet = 1.
+
+    Apache roda como LocalSystem — usar .pfx, não Store.
+
+    pnfce_versao_esquema = pl_010d — provavelmente errado; testar pl_009_V4.
+
+    ConverterLoteParaXml retorna <infNFe> (fragmento); AssinarNota embrulha em <NFe>.
+
+    Sem declaração <?xml?> → SEFAZ 402.
+
+    Com declaração prependada após assinar → parser local quebra.
+
+    PDO::ERRMODE_EXCEPTION obrigatório.
+
+    PowerShell: aspas simples, uma linha, curl.exe.
+
+    MesaDetalhesModal.jsx (antigo) tem alert — usar MesaDetalhesModal2.jsx.
+
+    pagamentoService.js (não mesaService.js).
+
+    Divergência item × cabeçalho → rejeição 531/532.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+9. Instruções para a IA no novo chat
+
+    Preparação fiscal e geração de TXT/XML prontas e validadas.
+
+    Componente COM instancia, assina e transmite — chega na SEFAZ.
+
+    Bloqueio: cStat=402 (encoding), com conflito entre declaração <?xml?> e parser local.
+
+Primeira ação ao receber a próxima mensagem:
+
+    Atacar o pnfce_versao_esquema = pl_010d — validar se está correto. Pedir ao usuário para buscar no código VB6 onde essa propriedade é lida/definida (buscar por pnfce_versao_esquema no projeto VB6). Se o VB6 usa outro valor, ajustar no banco.
+
+    Aplicar as 3 hipóteses do item 7.2 em ordem, testando cada uma.
+
+    Se autorizar: aplicar patches Electron + fix do vendedor.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+ (arrow function, typed property, ??=, trailing comma).
+
+    Não inventar nome de propriedade do componente — rodar teste_props.php primeiro.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar dos arquivos-chave, pedir para colar novamente: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php (completo), appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Fim do documento.
+Última atualização: 29/Setembro/2026 — v1.7

@@ -1,0 +1,287 @@
+format.
+Documento de Transferência — Facilit NFC-e
+
+Data: Terça-feira, 29/Setembro/2026 (fim do dia)
+Status: 🎯 DIAGNÓSTICO FECHADO. O COM do PHP funciona (teste enviou XML do VB6 → cStat=104). O problema é o XML gerado pelo PHP sem o bloco <IBSCBS> (Reforma Tributária por item). Diferença: 7377 vs 6583 bytes. Próximo passo: reescrever blocoImpostosItem() no NfceGeradorTxt.php.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado (extension=php_com_dotnet.dll).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d   ← CORRETO (VB6 usa e autoriza)
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; PDO::ERRMODE_EXCEPTION
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ⚠️ FALTA bloco IBSCBS por item
+│   └── NfceTransmissor.php         ; ✅ FUNCIONANDO (gera, assina, transmite)
+├── teste_progid.php                ; ⚠️ temporário
+├── teste_props.php                 ; ⚠️ temporário
+├── teste_envia_xml_vb6.php         ; ⚠️ temporário — PROVA que COM funciona
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    NfceFiscal::prepararTudo() — testado via VB6 autorizando ✅
+
+    COM 100% funcional:
+
+        new COM('NFCex.spdNFCeX') ✅
+
+        Diretórios setados ✅
+
+        Software House ✅
+
+        Servidores SEFAZ ✅
+
+        Certificado .pfx ✅
+
+        Ambiente/UF/CNPJ ✅
+
+        ConverterLoteParaXml, AssinarNota, EnviarNFSincrono ✅
+
+    XML gerado, assinado, salvo em disco ✅
+
+    XML chega na SEFAZ ✅
+
+PROVA DEFINITIVA (teste_envia_xml_vb6.php)
+
+Enviei o 6014-assinado.xml (gerado pelo VB6) pelo COM do PHP:
+text
+
+cStat: 104 (Lote processado)
+cStat protNFe: 704 (Data-Hora atrasada — só porque enviamos 3h depois)
+
+NÃO houve erro 402. Isso prova:
+
+    ✅ COM do PHP funciona
+
+    ✅ Envio do PHP funciona
+
+    ❌ O XML gerado pelo PHP está incompleto
+
+5. DIAGNÓSTICO FINAL
+Diff dos XMLs
+text
+
+VB6 (autorizado):  7377 bytes
+PHP (rejeitado):   6583 bytes
+Diferença:         794 bytes
+
+Tag           VB6  PHP
+<IBSCBS>      1    0     ← AQUI ESTÁ O PROBLEMA
+<dest>        0    0
+<infRespTec>  0    0
+Todas as demais: iguais
+
+O NfceGeradorTxt.php foi escrito com a Reforma Tributária SIMPLIFICADA — só gera os totais (dfe_gibstotal, dfe_gcbstotal), mas não gera o bloco <IBSCBS> por item. O schema pl_010d exige esse bloco. Sem ele → SEFAZ rejeita com 402 (o motivo real é XML inválido, mas a SEFAZ reporta como erro de encoding).
+6. Próximo passo exato
+6.1 Extrair o bloco IBSCBS do TXT do VB6
+
+Roda:
+powershell
+
+$txt = Get-Content "C:\WDS Comercial\NFCeGerada\2026\09\29\6014 29092026 1054.txt" -Raw
+$matches = [regex]::Matches($txt, '^\w*UB\w*=.*$', 'Multiline')
+$matches | Select-Object -First 40 | ForEach-Object { Write-Host $_.Value }
+
+Isso mostra como o VB6 escreve o bloco IBSCBS no TXT (linhas CST_UB13, cClassTrib_UB14, pIBSUF_UB18, vIBSUF_UB35, pCBS_UB56, vCBS_UB67, vIS_UB11, etc.).
+6.2 Confirmar as tabelas dfe_*
+sql
+
+SELECT 'gibsuf' AS t, COUNT(*) FROM dfe_gibsuf WHERE empresa=1 AND nfe=6015
+UNION ALL SELECT 'gibsmun', COUNT(*) FROM dfe_gibsmun WHERE empresa=1 AND nfe=6015
+UNION ALL SELECT 'gcbs',    COUNT(*) FROM dfe_gcbs    WHERE empresa=1 AND nfe=6015
+UNION ALL SELECT 'class',   COUNT(*) FROM dfe_class_fiscal WHERE empresa=1 AND nfe=6015
+UNION ALL SELECT 'is',      COUNT(*) FROM dfe_is      WHERE empresa=1 AND nfe=6015;
+
+    Se todas > 0 → NfceFiscal OK, só falta o gerador incluir no TXT
+
+    Se alguma = 0 → NfceFiscal também precisa ajuste
+
+6.3 Reescrever blocoImpostosItem() no NfceGeradorTxt.php
+
+Adicionar, após o bloco de PIS/COFINS, o bloco IBSCBS por item com as tags do VB6:
+
+Bloco IBS (por item):
+
+    vBC_UB16 (base de cálculo)
+
+    pIBSUF_UB18, vIBSUF_UB35
+
+    pIBSMun_UB37, vIBSMun_UB54
+
+    vIBS_UB54a
+
+Bloco CBS (por item):
+
+    pCBS_UB56, vCBS_UB67
+
+Bloco Classificação Fiscal:
+
+    CST_UB13, cClassTrib_UB14
+
+Fonte de dados: dfe_gibsuf, dfe_gibsmun, dfe_gcbs, dfe_class_fiscal, dfe_is.
+6.4 Testar
+
+    Roda nfceEmitir
+
+    Compara XML novamente:
+    powershell
+
+    $vb  = Get-Content "...6014-assinado.xml" -Raw
+    $php = Get-Content "...6015-assinado.xml" -Raw
+    Write-Host "VB6: $($vb.Length) | PHP: $($php.Length) | Dif: $($vb.Length - $php.Length)"
+
+    Se diferença < 50 bytes → estrutura OK → SEFAZ deve autorizar
+
+6.5 Depois de autorizar
+
+    Patches Electron: pagamentoService.js, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx
+
+    Fix do vendedor: login retornar codigoFuncionario, vendaAbrir rejeitar <= 0
+
+    Refatorar inicializarCom() para carregar CNPJ/UF/certificado do nfceconfig.ini + banco (proposta já discutida)
+
+    Apagar teste_*.php
+
+    Remover debug_raw do nfcePreparar
+
+6.6 Pendências gerais
+
+    Fila/lock (componente não é thread-safe)
+
+    Corrigir encoding dos acentos (SÃO → SAO no TXT do PHP — charset PDO)
+
+    TEF: não iniciado
+
+7. Pegadinhas conhecidas
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO (não conteúdo).
+
+    lkTXTDataSet = 1.
+
+    NÃO adicionar <?xml?> — VB6 não usa e SEFAZ aceita sem (foi regressão).
+
+    pnfce_versao_esquema = pl_010d — CORRETO.
+
+    SEFAZ reporta XML inválido como 402 (encoding) — não confiar cegamente no motivo.
+
+    XML do PHP está sem <IBSCBS> — causa raiz.
+
+    PHP perde acentos — investigar charset PDO.
+
+    Apache como LocalSystem — usar .pfx em arquivo.
+
+    PowerShell: aspas simples, uma linha.
+
+    MesaDetalhesModal2.jsx (não o antigo).
+
+    pagamentoService.js (não mesaService.js).
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+8. Instruções para a IA no novo chat
+
+    Preparação fiscal, geração de TXT, transmissão COM — 100% funcionais.
+
+    Comprovado: COM do PHP envia XML do VB6 sem erro de encoding (cStat=104).
+
+    Causa raiz identificada: XML do PHP sem bloco <IBSCBS> por item (Reforma Tributária).
+
+Primeira ação:
+
+    Pedir ao usuário para rodar o comando de extrair o bloco UB do TXT do VB6 (6014 29092026 1054.txt).
+
+    Pedir o SELECT COUNT(*) das tabelas dfe_* para o nfe=6015.
+
+    Com isso: reescrever blocoImpostosItem() no NfceGeradorTxt.php adicionando o bloco IBSCBS por item.
+
+    Testar nfceEmitir e comparar bytes.
+
+    Se autorizar: aplicar patches Electron + fix do vendedor.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> — VB6 não usa.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Estado emocional: 🎯 Uma reescrita de método de distância da primeira autorização.
+
+Fim do documento.
+Última atualização: 29/Setembro/2026 — v1.9

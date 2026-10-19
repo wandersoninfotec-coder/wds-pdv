@@ -1,0 +1,244 @@
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial) — PDV, mesas, financeiro, caixa, estoque.
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    Backend: PHP 7.x + PDO + MySQL + Apache (Windows, mesmo servidor do ERP).
+
+    Fiscal: Componente NFC-e TecnoSpeed v6.0 via COM/ActiveX.
+
+    ProgID confirmado: NFCex.spdNFCeX (o e minúsculo importa).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    com_dotnet habilitado no php.ini (linha: extension=php_com_dotnet.dll).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    nfceconfig.ini: UF=MT, CNPJ=58717761000149, Ambiente=2 (homolog.).
+
+    Pastas TecnoSpeed confirmadas:
+
+        Templates: C:\WDS Comercial\Templates\vm60\Conversor\NFCeDataSets.xml
+
+        Esquemas: C:\WDS Comercial\Esquemas\
+
+        Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; date_default_timezone_set('America/Cuiaba')
+├── core/Core.php                   ; PDO::ERRMODE_EXCEPTION + SET time_zone='-04:00'
+├── controllers/appController.php   ; endpoints (ver 4.2)
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ ESCRITO
+│   └── NfceTransmissor.php         ; ✅ ESCRITO — bloqueio em inicializarCom()
+├── teste_progid.php                ; ⚠️ temporário (apagar depois)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+4.1 Preparação fiscal
+
+    NfceFiscal::prepararTudo() popula tab_nfce, nfce_*, dfe_*. Teste cruzado validado: dados da API → VB6 autorizou NFC-e na SEFAZ ✅.
+
+    Correções aplicadas: ide_indfinal=1, timezone Cuiabá, colunas tot_icms_*, tot_fp_*, dfe_gibstotal/gcbstotal, prod_xProd homologação.
+
+4.2 Endpoints ativos
+
+login, vendaAbrir, itemAdicionarSeguro (com FOR UPDATE), verificarStatus, historicoListar/Detalhes, clientesListar/Cadastrar, municipiosBuscar, dadosEmpresa, dadosCaixa, finalizarVenda, relatoriosVendas, nfcePreparar, diagFiscal, diagMetodos, testeFiscal, nfceEmitir (novo).
+4.3 COM — funcionando
+
+    new COM('NFCex.spdNFCeX') → OK ✅
+
+    teste_progid.php retornou {"php_ok":true,"instancia":"OK","classe":"com"}
+
+4.4 Componentes escritos
+
+    NfceGeradorTxt.php — gera TXT formato TecnoSpeed (INCLUIR / identificação / emitente / destinatário / INCLUIRITEM...SALVARITEM / totais / INCLUIRPARTE=YA...SALVARPARTE=YA / vTroco_YA09 / infCpl_Z03 / resp técnico / SALVAR).
+
+    NfceTransmissor.php — chama ConverterLoteParaXml → AssinarNota → EnviarNFSincrono, parseia retorno, grava tab_nfce.
+
+    Endpoint nfceEmitir — orquestra prepara → gera TXT → transmite.
+
+5. Arquitetura confirmada
+text
+
+[PHP] lê tabelas nfce_* → gera TXT (formato TecnoSpeed)
+[COM] ConverterLoteParaXml(txt, lkTXTDataSet=1, esquema) → XML
+[COM] AssinarNota(xml) → XML assinado
+[COM] EnviarNFSincrono('1', xmlAssinado, false) → retorno SEFAZ
+[PHP] parseia cStat/xMotivo/nProt/digVal → UPDATE tab_nfce
+
+Métodos/propriedades do componente descobertos pelo VB6:
+
+    NFCe.ValidarEsquemaAntesEnvio, NFCe.UltimoLogEnvio, NFCe.UltimoLogRetorno
+
+    NFCe.ConverterLoteParaXml(caminho, 1, esquema)
+
+    NFCe.AssinarNota(xml)
+
+    NFCe.EnviarNFSincrono(lote, xmlAssinado, false)
+
+Status em tab_nfce.status_nfce: 0=pendente, 1=validada, 3=autorizada, 4=rejeitada, 8=contingência.
+6. Problemas atuais — BLOQUEIO ÚNICO
+Componente procura templates no lugar errado
+
+Erro atual:
+text
+
+Arquivo de template do conversor não encontrado:
+C:\xampp\apache\bin\Templates\vm60\Conversor\NFCeDataSets.xml
+
+Causa: o componente resolve caminhos relativos (Templates\...) a partir do working directory do Apache (C:\xampp\apache\bin\), não do PHP.
+
+Tentativa já feita: chdir('C:\WDS Comercial\') antes do new COM — não resolveu. O componente já "congela" o cwd no momento em que o OCX é carregado pelo Apache, ignorando chdir posterior.
+Solução rápida (2 minutos) — copiar pastas
+powershell
+
+Copy-Item "C:\WDS Comercial\Templates" -Destination "C:\xampp\apache\bin\" -Recurse -Force
+Copy-Item "C:\WDS Comercial\Esquemas"  -Destination "C:\xampp\apache\bin\" -Recurse -Force
+
+Reiniciar Apache. Testar nfceEmitir. É o paliativo.
+Solução correta — descobrir propriedade do componente
+
+Rodar teste_props.php (script abaixo) para descobrir qual propriedade/método seta o diretório dos templates ou carrega o INI.
+7. Próximo passo exato
+7.1 Agora (destravar)
+
+    Copiar Templates e Esquemas para C:\xampp\apache\bin\ (Solução Rápida acima)
+
+    Reiniciar Apache
+
+    Chamar POST /app/nfceEmitir com {"empresa":1,"venda":1374,"tipo_operacao":"FACILIT"}
+
+    Olhar logs/nfce_transmissor.log
+
+    Se autorizar (cStat=100): SELECT status_nfce, chave_acesso, nro_protocolo_autorizacao FROM tab_nfce WHERE emp_codigo=1 AND numero_nfce=X;
+
+7.2 Em paralelo — solução definitiva
+
+Criar teste_props.php para descobrir a propriedade correta:
+php
+
+<?php
+header('Content-Type: application/json; charset=utf-8');
+$obj = new COM('NFCex.spdNFCeX');
+$resultado = ['props' => [], 'metodos' => []];
+
+$props = ['DiretorioTemplates','DiretorioEsquemas','DiretorioLog','DiretorioLogErro',
+          'DiretorioTemporario','DiretorioXmlDestinatario','CaminhoTemplates',
+          'CaminhoEsquemas','CaminhoConfig','Templates','Esquemas',
+          'ArquivoConfiguracao','ArquivoConfig','ConfigFile','INIFile','Configuracao'];
+
+foreach ($props as $p) {
+    try { $resultado['props'][$p] = ['existe'=>true,'valor'=>(string)$obj->$p]; }
+    catch (Throwable $t) { $resultado['props'][$p] = ['existe'=>false]; }
+}
+$metodos = ['LoadConfig','CarregarConfiguracao','CarregarConfig','LoadINI','Inicializar'];
+foreach ($metodos as $m) {
+    $resultado['metodos'][$m] = method_exists($obj, $m);
+}
+echo json_encode($resultado, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+Abrir: http://192.168.100.67/app_mesas_api/teste_props.php
+7.3 Fix pendentes no Electron
+
+    pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+
+    FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem:'FACILIT'
+
+    MesaDetalhesModal2.jsx: mesclar detalhesExtras (NFC-e) no SuccessModal
+
+    SuccessModal.jsx: não muda
+
+7.4 Fix do vendedor (bug)
+
+    login não retorna codigoFuncionario → app manda vendedor:0
+
+    Corrigir: (a) adicionar codigoFuncionario no JSON do login; (b) MesaDetalhesModal2 usar user?.codigoFuncionario || 1 (remover fallback user.id); (c) vendaAbrir rejeitar vendedor<=0
+
+7.5 Outras pendências
+
+    Patch de origem em finalizarVenda
+
+    Remover debug_raw/debug_method do nfcePreparar
+
+    Apagar teste_progid.php e teste_props.php depois
+
+    Fila/lock para concorrência (componente não é thread-safe)
+
+    Reforma Tributária por item no TXT está simplificada — completar se rejeitar
+
+    TEF: não iniciado
+
+8. Pegadinhas conhecidas
+
+    ProgID é NFCex.spdNFCeX (com e minúsculo) — o X maiúsculo do OCX engana.
+
+    Componente resolve templates por cwd do Apache, não do PHP. chdir no PHP não ajuda.
+
+    extension=com_dotnet no php.ini não funciona em PHP antigo — precisa ser extension=php_com_dotnet.dll.
+
+    ConverterLoteParaXml aceita string (não precisa de arquivo físico, mas VB6 usa).
+
+    lkTXTDataSet = 1 (confirmado).
+
+    PDO::ERRMODE_EXCEPTION obrigatório — sem isso, erros SQL somem.
+
+    bindValue órfão = PDO ignora silenciosamente.
+
+    PowerShell: aspas simples, comando em uma linha, usar curl.exe (não curl).
+
+    MesaDetalhesModal.jsx (antigo) tem só alert — o correto é MesaDetalhesModal2.jsx.
+
+    pagamentoService.js é o service correto (não mesaService.js).
+
+    Divergência item × cabeçalho → rejeição 531/532.
+
+    funcionarios.USER é palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+    VB6 e PHP vão usar as mesmas pastas (Templates, Esquemas, NFCeGerada) — cuidado com concorrência.
+
+9. Instruções para a IA no novo chat
+
+    Preparação fiscal e geração de TXT prontas e validadas.
+
+    Componente COM já instancia com sucesso.
+
+    Bloqueio atual: caminho de templates. Usuário está aplicando a Solução Rápida (copiar pastas).
+
+    Primeira ação: pedir ao usuário o resultado do teste_props.php (se rodou) e/ou o resultado do nfceEmitir após a cópia das pastas.
+
+    Se autorizar (cStat=100) → aplicar patches Electron + fix do vendedor.
+
+    Se rejeitar → ler cStat e xMotivo do log e corrigir o gerador TXT (provavelmente campo faltando ou formato errado).
+
+    Solução definitiva (após destravar): implementar LoadConfig('nfceconfig.ini') ou propriedade equivalente, e remover as cópias.
+
+    Não inventar nome de propriedade — sempre rodar teste_props.php primeiro.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar dos arquivos-chave, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.

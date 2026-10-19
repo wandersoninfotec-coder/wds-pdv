@@ -1,0 +1,249 @@
+/* ============================================================
+   MesaDetalhesModal — compacto e responsivo
+   ============================================================ */
+
+.mdm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  z-index: 1000;
+}
+
+.mdm-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 640px;
+  /* 🔴 chave: nunca passa de 96vh */
+  max-height: 96vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;   /* o body interno é que rola */
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+/* ============ HEADER ============ */
+.mdm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8f9fb;
+  border-bottom: 1px solid #e0e5ec;
+  flex-shrink: 0;
+}
+
+.mdm-header-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;   /* permite o title ellipsar */
+  flex: 1;
+}
+
+.mdm-header-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.mdm-header-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.mdm-title {
+  font-size: clamp(14px, 2.2vw, 17px);
+  font-weight: 700;
+  margin: 0;
+  color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mdm-subtitle {
+  font-size: 11px;
+  color: #7f8c8d;
+  margin-top: 1px;
+}
+
+.mdm-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #95a5a6;
+  padding: 4px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.mdm-close:hover { background: #e0e5ec; color: #2c3e50; }
+
+/* ============ BODY (rola) ============ */
+.mdm-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+  /* rolamento suave no iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+.mdm-loading,
+.mdm-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 16px;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+.mdm-vazio-icon { font-size: 40px; }
+
+/* ============ LISTA (itens em 1 linha) ============ */
+.mdm-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.mdm-item {
+  display: grid;
+  grid-template-columns: 38px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid #f0f3f7;
+  font-size: clamp(12px, 1.9vw, 13px);
+}
+.mdm-item:last-child { border-bottom: none; }
+.mdm-item:hover { background: #fafbfd; }
+
+.mdm-item-qtd {
+  font-weight: 700;
+  color: #3498db;
+  text-align: left;
+}
+
+.mdm-item-desc {
+  color: #2c3e50;
+  /* 🔴 permite quebra em descrições longas sem scroll lateral */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.mdm-item-obs {
+  color: #e67e22;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.mdm-item-unit {
+  color: #95a5a6;
+  font-size: 0.92em;
+  white-space: nowrap;
+}
+
+.mdm-item-total {
+  font-weight: 700;
+  color: #27ae60;
+  text-align: right;
+  white-space: nowrap;
+  min-width: 72px;
+}
+
+/* ============ FOOTER (fixo) ============ */
+.mdm-footer {
+  padding: 10px 14px;
+  background: #f8f9fb;
+  border-top: 1px solid #e0e5ec;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.mdm-resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mdm-resumo-label {
+  font-size: 11px;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.mdm-resumo-total {
+  font-size: clamp(16px, 2.6vw, 20px);
+  font-weight: 800;
+  color: #27ae60;
+}
+
+.mdm-acoes {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mdm-btn {
+  padding: 9px 16px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: clamp(12px, 1.9vw, 14px);
+  transition: transform 0.1s;
+  white-space: nowrap;
+}
+.mdm-btn:active { transform: scale(0.97); }
+.mdm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.mdm-btn-secundario {
+  background: #ecf0f1;
+  color: #2c3e50;
+}
+.mdm-btn-primario {
+  background: #27ae60;
+  color: #fff;
+}
+
+/* ============ AJUSTES PARA TELAS PEQUENAS ============ */
+@media (max-height: 520px) {
+  .mdm-header { padding: 6px 10px; }
+  .mdm-header-icon { font-size: 18px; }
+  .mdm-item { padding: 6px 10px; }
+  .mdm-footer { padding: 8px 10px; }
+  .mdm-resumo-total { font-size: 16px; }
+  .mdm-btn { padding: 7px 12px; }
+}
+
+@media (max-width: 420px) {
+  .mdm-item {
+    grid-template-columns: 32px 1fr auto;
+    gap: 6px;
+  }
+  .mdm-item-unit { display: none; }  /* esconde preço unitário em telas estreitas */
+  .mdm-item-total { min-width: 62px; }
+}
+
+/* Scrollbar fininha (Chrome/Edge) */
+.mdm-body::-webkit-scrollbar { width: 6px; }
+.mdm-body::-webkit-scrollbar-track { background: transparent; }
+.mdm-body::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+.mdm-body::-webkit-scrollbar-thumb:hover { background: #a0aec0; }

@@ -1,0 +1,374 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Terça-feira, 29/Setembro/2026 (fim do dia)
+Status: 🎉🎉🎉 PRIMEIRA NFC-e AUTORIZADA VIA PHP! (cStat=100, protocolo 151260000373648) 🎉🎉🎉
+Próximo passo: corrigir tratarRetorno (bug de leitura do cStat) e plugar no Electron.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado (extension=php_com_dotnet.dll).
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; ✅ PDO com charset=latin1
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ FUNCIONANDO (chave pibsuf minúscula)
+│   └── NfceTransmissor.php         ; ⚠️ corrigir tratarRetorno
+├── teste_progid.php                ; temporário (apagar)
+├── teste_props.php                 ; temporário (apagar)
+├── teste_envia_xml_vb6.php         ; temporário (apagar)
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    NfceFiscal::prepararTudo() — testado via VB6 autorizando ✅
+
+    COM 100% funcional — instancia, configura, gera XML, assina, transmite ✅
+
+    PDO com charset=latin1 — acentos corrigidos ✅
+
+    sanitizarAscii no NfceGeradorTxt::salvarArquivo() ✅
+
+    fmtDec($v, $casas) com number_format fixo ✅
+
+    blocoProdutos com casas corretas ✅
+
+    blocoReformaItem com IBSCBS por item (chave pibsuf minúscula) ✅
+
+    blocoReformaTotal com ordem correta do VB6 ✅
+
+    indFinal_B25a=1 forçado ✅
+
+    Alíquotas 2026 corretas: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90% ✅
+
+    🎉 NFC-e 6023 AUTORIZADA — cStat=100, protocolo 151260000373648 ✅
+
+5. Histórico de erros resolvidos (cStat)
+NFC-e	cStat	Motivo	Solução
+6013-6017	402	Encoding (declaração/acentos)	charset PDO + sanitizarAscii
+6018	215	vPIS 1 casa decimal	fmtDec corrigido
+6019	716	indFinal=0	forçado para 1
+6020-6022	1026	Alíquota IBS UF ≠ 0,1%	case da coluna pibsuf
+6023	100	AUTORIZADO 🎉	—
+6. PRÓXIMO PASSO EXATO
+6.1 Corrigir tratarRetorno (bug crítico)
+
+O log do 6023 mostrou:
+text
+
+Retorno: cStat=104 xMotivo=Lote processado nProt=151260000373648
+Status atualizado: 4 (104 Lote processado)
+
+Mas o XML real era cStat=100. O tratarRetorno está lendo o cStat da raiz (retEnviNFe, que é 104) em vez do protNFe (que é 100).
+
+Substitui o método tratarRetorno inteiro no NfceTransmissor.php:
+php
+
+private function tratarRetorno($xmlRetorno, $xmlAssinado) {
+    $cStatLote   = $this->getTag('cStat',   $xmlRetorno);
+    $xMotivoLote = $this->getTag('xMotivo', $xmlRetorno);
+
+    $cStat   = $cStatLote;
+    $xMotivo = $xMotivoLote;
+    $nProt   = '';
+    $digVal  = '';
+
+    if (preg_match('/<protNFe[^>]*>(.*?)<\/protNFe>/s', $xmlRetorno, $m)) {
+        $prot = $m[1];
+        if (preg_match('/<cStat>(\d+)<\/cStat>/', $prot, $mm))       $cStat   = $mm[1];
+        if (preg_match('/<xMotivo>([^<]*)<\/xMotivo>/', $prot, $mm)) $xMotivo = $mm[1];
+        if (preg_match('/<nProt>(\d+)<\/nProt>/', $prot, $mm))       $nProt   = $mm[1];
+        if (preg_match('/<digVal>([^<]*)<\/digVal>/', $prot, $mm))   $digVal  = $mm[1];
+    }
+
+    $this->log("Retorno: cStatLote=$cStatLote | cStat=$cStat | xMotivo=$xMotivo | nProt=$nProt");
+
+    if ($cStat === self::CSTAT_AUTORIZADA) {
+        $this->atualizarAutorizada($nProt, $digVal, $xmlRetorno);
+        return [
+            'sucesso'   => true,
+            'status'    => self::STATUS_AUTORIZADA,
+            'cStat'     => $cStat,
+            'protocolo' => $nProt,
+            'mensagem'  => $xMotivo,
+        ];
+    }
+
+    if ($cStat === self::CSTAT_DUPLICIDADE) {
+        $this->atualizarStatus(self::STATUS_REJEITADA, $cStat, $xMotivo);
+        return [
+            'sucesso'   => false,
+            'status'    => self::STATUS_REJEITADA,
+            'cStat'     => $cStat,
+            'mensagem'  => "Duplicidade: $xMotivo",
+        ];
+    }
+
+    $this->atualizarStatus(self::STATUS_REJEITADA, $cStat, $xMotivo);
+    return [
+        'sucesso'   => false,
+        'status'    => self::STATUS_REJEITADA,
+        'cStat'     => $cStat,
+        'mensagem'  => "SEFAZ ($cStat): $xMotivo",
+    ];
+}
+
+Constantes esperadas:
+php
+
+const CSTAT_AUTORIZADA  = '100';
+const CSTAT_DUPLICIDADE = '539';
+const STATUS_AUTORIZADA = 3;
+const STATUS_REJEITADA  = 4;
+
+6.2 Ajustar atualizarAutorizada (se necessário)
+
+Confirma que grava em tab_nfce:
+
+    status_nfce = 3
+
+    chave_acesso
+
+    nro_protocolo_autorizacao = $nProt
+
+    nro_digval_validacao = $digVal
+
+    xml_autorizado_retorno = $xmlRetorno
+
+    data_autorizacao = NOW()
+
+6.3 Testar novamente com venda nova
+
+    Limpar NFC-e 6023 (opcional — já autorizou)
+
+    Emitir numa venda nova
+
+    Log esperado: cStatLote=104 | cStat=100 | xMotivo=Autorizado... | nProt=...
+
+    Status atualizado: AUTORIZADA
+
+    Confirmar: SELECT status_nfce, chave_acesso, nro_protocolo_autorizacao FROM tab_nfce WHERE ...
+
+7. Patches Electron (depois de confirmar cStat=100)
+7.1 pagamentoService.js
+
+Adicionar emitirNfce + finalizarEEmitir:
+javascript
+
+emitirNfce: async (venda, tipoOperacao = 'FACILIT') => {
+  const response = await api.post('/app/nfceEmitir', {
+    empresa: EMPRESA_PADRAO,
+    venda,
+    tipo_operacao: tipoOperacao,
+  });
+  return response.data;
+},
+
+finalizarEEmitir: async (params) => {
+  const resultadoVenda = await pagamentoService.finalizarVenda(params);
+  if (!resultadoVenda?.sucesso) throw new Error(resultadoVenda?.erro || 'Falha ao finalizar');
+
+  let nfce = null;
+  try {
+    nfce = await pagamentoService.emitirNfce(params.venda, params.origem ?? 'FACILIT');
+  } catch (err) {
+    nfce = { sucesso: false, erro: err.message };
+  }
+  return { venda: resultadoVenda, nfce };
+},
+
+7.2 FinalizarVendaModal.jsx
+
+Trocar finalizarVenda por finalizarEEmitir:
+javascript
+
+const { venda, nfce } = await pagamentoService.finalizarEEmitir({
+  venda: mesa.venda,
+  usuario: user?.codigoFuncionario || user?.id || 1,
+  formas: pagamentos.map((p) => ({ codigo: p.codigo, valor: p.valor, valor_recebido: p.valorRecebido })),
+  valorDesconto: deCentavos(descontoCent),
+  cliente: cliente?.codigo || 1,
+  origem: 'FACILIT',
+});
+if (venda.sucesso) { if (onSucesso) onSucesso({ ...venda, nfce }); }
+
+7.3 MesaDetalhesModal2.jsx
+
+Mesclar detalhesExtras no SuccessModal:
+javascript
+
+const handleSucessoFinalizacao = (resultado) => {
+  setModalFinalizarAberto(false);
+  const detalhesExtras = [];
+  if (resultado.nfce?.sucesso) {
+    detalhesExtras.push({ label: 'NFC-e', valor: '✅ Autorizada' });
+    if (resultado.nfce.protocolo) detalhesExtras.push({ label: 'Protocolo', valor: resultado.nfce.protocolo });
+  } else if (resultado.nfce) {
+    detalhesExtras.push({ label: 'NFC-e', valor: '⚠️ Pendente' });
+  }
+  setSucessoModal({ ...resultado, detalhesExtras });
+};
+
+E no JSX: ...(sucessoModal.detalhesExtras || [])
+8. Fix do vendedor (bug pendente)
+
+    login (em appController.php) deve retornar codigoFuncionario:
+    php
+
+    'usuario' => [
+        'id' => (int)$user['codigo'],
+        'codigoFuncionario' => $codigoFuncionario,
+        // ...
+    ]
+
+    MesaDetalhesModal2.jsx: vendedor: user?.codigoFuncionario || 1 (remover || user?.id)
+
+    vendaAbrir: rejeitar vendedor <= 0
+
+9. Refatorações futuras
+
+    inicializarCom() — carregar CNPJ/UF/certificado do nfceconfig.ini + banco (proposta já discutida)
+
+    Apagar teste_*.php
+
+    Remover debug_raw do nfcePreparar
+
+    Fila/lock (componente não thread-safe)
+
+    <autXML> (opcional)
+
+    TEF: não iniciado
+
+10. Pegadinhas conhecidas (ORDEM DE IMPORTÂNCIA)
+
+    🔴 Case das colunas PDO — pibsuf (minúsculo), vIBSUF (maiúsculo). Sempre conferir com SHOW COLUMNS FROM tabela.
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO (não conteúdo).
+
+    NÃO adicionar <?xml?> — VB6 não usa.
+
+    pnfce_versao_esquema = pl_010d — CORRETO.
+
+    SEFAZ reporta 402/215/716/1026 — sempre ler protNFe, não só a raiz.
+
+    PDO precisa charset=latin1 — MySQL 4.1 legado.
+
+    sanitizarAscii remove acentos antes de gravar TXT.
+
+    fmtDec($v, $casas) com number_format fixo (nunca remover zeros).
+
+    indFinal sempre 1 em NFC-e.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+11. Instruções para a IA no novo chat
+
+    Preparação fiscal, geração TXT, transmissão COM — 100% funcionais.
+
+    NFC-e autorizada com sucesso no 6023 (cStat=100, protocolo 151260000373648).
+
+    Bug crítico: tratarRetorno lê cStat da raiz em vez do protNFe. Corrigir.
+
+Primeira ação:
+
+    Aplicar o tratarRetorno corrigido (item 6.1)
+
+    Rodar nfceEmitir numa venda nova
+
+    Confirmar cStat=100 no log + status_nfce=3 no banco
+
+    Aplicar patches Electron (item 7) + fix do vendedor (item 8)
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?>.
+
+    NÃO forçar mb_convert_encoding.
+
+    SEMPRE conferir case de coluna com SHOW COLUMNS antes de usar no código.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Estado: 🎉 NFC-e autorizada! Só falta polir e integrar com o Electron.
+
+Fim do documento.
+Última atualização: 29/Setembro/2026 — v3.0

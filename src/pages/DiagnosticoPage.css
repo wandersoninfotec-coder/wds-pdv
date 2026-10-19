@@ -1,0 +1,94 @@
+/* src/pages/DiagnosticoPage.css */
+.diag-container { min-height: 100vh; background: #f5f7fa; display: flex; flex-direction: column; }
+
+.diag-filtros {
+  display: flex; gap: 12px; align-items: flex-end;
+  padding: 16px 24px; background: #fff;
+  border-bottom: 1px solid #e1e8ed; flex-wrap: wrap;
+}
+.diag-filtro { display: flex; flex-direction: column; gap: 4px; }
+.diag-filtro label { font-size: 12px; color: #7f8c8d; font-weight: 600; text-transform: uppercase; }
+.diag-filtro select,
+.diag-filtro input {
+  padding: 8px 12px; border: 1px solid #d1d9e0; border-radius: 8px;
+  font-size: 14px; font-family: inherit; background: #fff;
+}
+.diag-filtro-busca input { min-width: 240px; }
+.diag-btn-buscar {
+  padding: 9px 20px; border: none; border-radius: 8px;
+  color: #fff; font-weight: 700; cursor: pointer; font-size: 14px;
+}
+
+/* Cards */
+.diag-cards {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px; padding: 20px 24px 8px;
+}
+.diag-card {
+  background: #fff; border: 2px solid transparent;
+  border-radius: 12px; padding: 16px 20px; text-align: left;
+  cursor: pointer; transition: all 0.15s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.diag-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.diag-card.ativo { border-color: #3498db; }
+.diag-card-valor { font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+.diag-card-label { font-size: 14px; font-weight: 700; color: #2c3e50; }
+.diag-card-sub { font-size: 12px; color: #7f8c8d; margin-top: 4px; }
+.diag-card-vermelho .diag-card-valor { color: #c0392b; }
+.diag-card-laranja .diag-card-valor { color: #e67e22; }
+.diag-card-amarelo .diag-card-valor { color: #f39c12; }
+
+/* Abas */
+.diag-abas {
+  display: flex; gap: 4px; padding: 12px 24px 0;
+  border-bottom: 1px solid #e1e8ed; background: #fff;
+}
+.diag-aba {
+  padding: 10px 18px; border: none; background: transparent;
+  border-bottom: 3px solid transparent; cursor: pointer;
+  font-weight: 600; color: #7f8c8d; font-size: 13px;
+}
+.diag-aba.ativa { color: #3498db; border-bottom-color: #3498db; }
+
+/* Lista */
+.diag-lista-wrap { padding: 20px 24px; flex: 1; }
+.diag-tabela {
+  width: 100%; background: #fff; border-radius: 12px;
+  overflow: hidden; border-collapse: collapse;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.diag-tabela thead { background: #f0f3f7; }
+.diag-tabela th {
+  text-align: left; padding: 12px 16px; font-size: 12px;
+  color: #7f8c8d; text-transform: uppercase; font-weight: 700;
+  border-bottom: 1px solid #e1e8ed;
+}
+.diag-tabela td {
+  padding: 12px 16px; font-size: 14px; color: #2c3e50;
+  border-bottom: 1px solid #eef2f6;
+}
+.diag-linha:hover { background: #f9fbfd; }
+.diag-col-ref { font-weight: 700; }
+.diag-vazio-cell { color: #e74c3c; font-style: italic; font-weight: 600; }
+
+/* Vazio */
+.diag-vazio { text-align: center; padding: 60px 20px; color: #95a5a6; }
+.diag-vazio-icon { font-size: 56px; margin-bottom: 12px; }
+.diag-vazio-msg { font-size: 15px; }
+
+/* CFOPs únicos */
+.diag-cfops-unicos {
+  margin: 0 24px 20px; padding: 16px 20px;
+  background: #fef3e5; border-left: 4px solid #f39c12;
+  border-radius: 8px;
+}
+.diag-cfops-titulo { font-weight: 700; color: #b9770e; margin-bottom: 10px; }
+.diag-cfop-linha {
+  display: flex; justify-content: space-between;
+  padding: 6px 0; font-size: 14px; color: #2c3e50;
+  border-bottom: 1px solid #f0e4cf;
+}
+.diag-cfop-linha:last-child { border-bottom: none; }
+.diag-cfop-codigo { font-weight: 700; font-family: 'Courier New', monospace; }
+.diag-cfop-qtd { color: #b9770e; font-size: 13px; }

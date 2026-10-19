@@ -1,0 +1,574 @@
+/* src/components/FinalizarVendaModal.css */
+
+/* Fallback caso o tema não seja injetado */
+:root {
+  --tema-cor: #27ae60;
+  --tema-cor-suave: #eaf9f1;
+}
+
+.fv-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 20px;
+  animation: fvFadeIn 0.2s ease;
+}
+
+@keyframes fvFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fv-content {
+  background-color: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: fvSlideUp 0.25s ease;
+}
+
+@keyframes fvSlideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ============ HEADER ============ */
+.fv-header {
+  padding: 20px 25px;
+  border-bottom: 1px solid #eaeef3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--tema-cor-suave, #f7f9fc);
+  border-radius: 16px 16px 0 0;
+}
+
+.fv-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.fv-subtitle {
+  font-size: 13px;
+  color: #95a5a6;
+  margin-top: 2px;
+}
+
+.fv-close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background-color: #fff;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: #95a5a6;
+  transition: all 0.2s ease;
+}
+
+.fv-close:hover {
+  background-color: #e74c3c;   /* destrutivo — mantém vermelho */
+  color: #fff;
+}
+
+/* ============ BODY ============ */
+.fv-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 25px;
+}
+
+/* ============ TOTAL BOX (cor do tema) ============ */
+.fv-total-box {
+  background: var(--tema-cor, #27ae60);
+  position: relative;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  color: #fff;
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.fv-total-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, transparent 0%, rgba(0, 0, 0, 0.18) 100%);
+  pointer-events: none;
+}
+
+.fv-total-box > * {
+  position: relative;
+  z-index: 1;
+}
+
+.fv-total-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.9;
+}
+
+.fv-total-valor {
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 6px;
+}
+
+/* ============ SECTION TITLE ============ */
+.fv-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #95a5a6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+  margin-top: 5px;
+}
+
+/* ============ FORMAS DE PAGAMENTO ============ */
+.fv-formas {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.fv-forma {
+  padding: 15px;
+  border: 2px solid #eaeef3;
+  background-color: #f7f9fc;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.fv-forma:hover {
+  border-color: var(--tema-cor, #3498db);
+  background-color: #fff;
+}
+
+.fv-forma.ativa {
+  border-color: var(--tema-cor, #3498db);
+  background-color: var(--tema-cor-suave, #eaf4fc);
+}
+
+.fv-forma-icone {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.fv-forma-nome {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* ============ CAMPOS ============ */
+.fv-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 6px;
+  margin-top: 12px;
+}
+
+.fv-input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+  background-color: #f7f9fc;
+  border: 2px solid #eaeef3;
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.fv-input:focus {
+  border-color: var(--tema-cor, #3498db);
+  background-color: #fff;
+}
+
+/* ============ TROCO (valor positivo — verde permanece) ============ */
+.fv-troco {
+  background-color: #eaf9f1;
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fv-troco-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #27ae60;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fv-troco-valor {
+  font-size: 24px;
+  font-weight: 700;
+  color: #27ae60;
+}
+
+/* ============ ERRO ============ */
+.fv-erro {
+  background-color: #fdecea;
+  color: #e74c3c;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* ============ FOOTER ============ */
+.fv-footer {
+  padding: 15px 25px 20px;
+  display: flex;
+  gap: 10px;
+  background-color: #fff;
+  border-radius: 0 0 16px 16px;
+  border-top: 1px solid #eaeef3;
+}
+
+.fv-btn {
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.fv-btn-secundario {
+  flex: 1;
+  color: #5c6b7a;
+  background-color: #f0f3f7;
+}
+
+.fv-btn-secundario:hover {
+  background-color: #e0e5ec;
+}
+
+.fv-btn-primario {
+  flex: 2;
+  color: #fff;
+  background-color: var(--tema-cor, #27ae60);
+}
+
+.fv-btn-primario:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.fv-btn-primario:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ PAGAMENTOS ADICIONADOS ============ */
+.fv-pagamentos-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fv-pagamento-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #f7f9fc;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.fv-pagamento-icone {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.fv-pagamento-info {
+  flex: 1;
+}
+
+.fv-pagamento-nome {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.fv-pagamento-valor {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tema-cor, #27ae60);
+  margin-right: 8px;
+}
+
+.fv-pagamento-remover {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background-color: #fff;
+  color: #95a5a6;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.fv-pagamento-remover:hover {
+  background-color: #e74c3c;   /* destrutivo — mantém vermelho */
+  color: #fff;
+}
+
+/* ============ STATUS (falta/ok — semântico) ============ */
+.fv-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.fv-status.falta {
+  background-color: #fff4e5;
+}
+
+.fv-status.falta .fv-status-label,
+.fv-status.falta .fv-status-valor {
+  color: #d68910;
+}
+
+.fv-status.ok {
+  background-color: #eaf9f1;
+}
+
+.fv-status.ok .fv-status-label,
+.fv-status.ok .fv-status-valor {
+  color: #27ae60;
+}
+
+.fv-status-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fv-status-valor {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ============ INPUT + BOTÃO ADICIONAR ============ */
+.fv-input-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fv-input-group .fv-input {
+  flex: 1;
+}
+
+.fv-btn-adicionar {
+  padding: 0 20px;
+  background-color: var(--tema-cor, #3498db);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.2s ease;
+  white-space: nowrap;
+}
+
+.fv-btn-adicionar:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.fv-btn-adicionar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============ TROCO PREVIEW (usa o tema) ============ */
+.fv-troco-preview {
+  background-color: var(--tema-cor-suave, #eaf4fc);
+  border: 2px dashed var(--tema-cor, #3498db);
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  animation: fvPulse 0.3s ease;
+}
+
+@keyframes fvPulse {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.fv-troco-preview-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tema-cor, #3498db);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fv-troco-preview-valor {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--tema-cor, #3498db);
+}
+
+/* Troco na linha do pagamento */
+.fv-pagamento-troco {
+  font-size: 11px;
+  color: var(--tema-cor, #3498db);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* ============ BOX DE CLIENTE ============ */
+.fv-cliente-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: #f7f9fc;
+  border: 2px solid #eaeef3;
+  border-radius: 10px;
+  margin-top: 16px;
+}
+
+.fv-cliente-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.fv-cliente-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #95a5a6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fv-cliente-nome {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fv-cliente-cpf {
+  font-size: 11px;
+  color: #95a5a6;
+  margin-top: 2px;
+}
+
+/* ============ BOTÃO TROCAR CLIENTE ============ */
+.fv-cliente-box button.fv-btn-trocar-cliente {
+  all: unset;
+  padding: 9px 16px !important;
+  background-color: var(--tema-cor, #3498db) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  transition: filter 0.2s ease !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+  height: auto !important;
+  min-height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  text-align: center !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.fv-cliente-box button.fv-btn-trocar-cliente:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.fv-cliente-box button.fv-btn-trocar-cliente:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* ============ AVISO DE CPF OBRIGATÓRIO (amarelo — aviso semântico) ============ */
+.fv-aviso-cpf {
+  background-color: #fff4e5;
+  color: #d68910;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 12px;
+  border-left: 4px solid #f39c12;
+}
+
+.fv-aviso-cpf strong {
+  color: #b9770e;
+}
+
+/* ============ CPF AVULSO ============ */
+.fv-cpf-box {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fv-cpf-aviso {
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.fv-cpf-aviso.erro { color: #c0392b; }
+.fv-cpf-aviso.ok { color: #27ae60; }        /* confirmação — verde semântico */
+.fv-cpf-aviso.alerta { color: #d68910; }    /* aviso — amarelo semântico */

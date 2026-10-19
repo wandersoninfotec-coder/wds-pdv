@@ -1,0 +1,313 @@
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Vite, sem Electron) — PDV desktop.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF Sitef.
+
+2. Stack/ferramentas
+Backend
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma, spread em arrays).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado (charset latin1).
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    Log PHP: C:\xampp\php\logs\php_error_log.
+
+    display_errors=On, log_errors=On.
+
+Frontend
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20.
+
+    Pasta: D:\ANDROID\wds-pdv.
+
+    src/main.jsx = entry point do React (não é main.js do Electron).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\, Esquemas\vm60\
+
+    nfceServidoresHom.ini, nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+pnfce_serie                    = 1
+pnfce_ambiente                 = 2
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── controllers/appController.php
+├── core/Core.php                   ; PDO charset=latin1
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ✅ VALIDADO
+│   ├── NfceTransmissor.php         ; ⚠️ BUG: XML cancelamento não salva
+│   └── Produto.php                 ; ✅ VALIDADO
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+D:\ANDROID\wds-pdv\
+├── src/
+│   ├── App.jsx                     ; ✅ rota /notas
+│   ├── pages/
+│   │   ├── DashboardPage.jsx       ; ✅ botão "Notas Fiscais"
+│   │   ├── NotasPage.jsx           ; ✅ header padrão + data BR
+│   │   └── NotasPage.css
+│   ├── components/
+│   │   ├── AlertaContingencia.jsx  ; ✅
+│   │   ├── MesaDetalhesModal2.jsx  ; ✅
+│   │   ├── FinalizarVendaModal.jsx ; ✅
+│   │   ├── SuccessModal.jsx/.css   ; ✅
+│   │   ├── BotaoImprimirCupom.jsx  ; ✅
+│   │   ├── NotaDetalhesModal.jsx/.css  ; ✅
+│   │   ├── CancelarNotaModal.jsx/.css  ; ✅
+│   │   └── InutilizarModal.jsx/.css    ; ✅
+│   └── services/
+│       ├── pagamentoService.js     ; ✅
+│       ├── impressaoService.js     ; ✅
+│       └── notaService.js          ; ✅
+
+4. O que já está pronto/validado
+Backend ✅
+
+    COM TecnoSpeed: instancia, configura, gera XML, assina, transmite
+
+    NfceTransmissor:
+
+        detectarStatusSefaz() → status SEFAZ
+
+        transmitir(...) — normal + contingência
+
+        transmitirXmlAssinado(...) — reprocessamento
+
+        salvarXmlAutorizado(...) — monta nfeProc
+
+        cancelar(...) — ✅ funciona (mas não salva XML — bug atual)
+
+        inutilizar(...) — ✅ funciona
+
+        montarProcEventoCancelamento(...) — monta procEventoNFe
+
+        sanitizarTexto(...) — sanitiza justificativa (resolve erro de encoding)
+
+        obterCodigoUf(...) — UF → código IBGE
+
+        Propriedades novas: cnpjEmitente, razaoEmitente, ufEmitente, ambiente
+
+        carregarConfig() — carrega tudo de tabempresa + param_nfce
+
+Endpoints ✅
+Endpoint	Status
+POST /app/finalizarVenda	✅
+POST /app/nfcePreparar	✅
+POST /app/nfceEmitir	✅
+POST /app/nfceStatusSefaz	✅
+POST /app/nfceReprocessarContingencia	✅
+POST /app/nfceDadosImpressao	✅
+POST /app/nfceListar	✅
+POST /app/nfceCancelar	✅ (bug: não salva XML)
+POST /app/nfceInutilizar	✅
+POST /app/nfceDiagnostico	✅
+Frontend ✅
+
+    Dashboard → "Notas Fiscais" → rota /notas
+
+    NotasPage: header padrão (Voltar + logo + relógio + user), filtros, data BR, tabela com status colorido
+
+    Vazio hoje → botão "Ver últimos 7 dias"
+
+    NotaDetalhesModal: chave, protocolo, cliente, itens, formas, diagnóstico
+
+    Ações por status:
+
+        3 Autorizada → Reimprimir + Cancelar
+
+        4 Rejeitada → Diagnóstico + Inutilizar
+
+        8 Contingência → Reimprimir (provisório)
+
+    CancelarNotaModal — justificativa (mín. 15 chars) + sanitização no backend
+
+    InutilizarModal — faixa + justificativa
+
+Mapa cStat → cStat real do evento
+
+Importante: CancelarNF retorna cStat=128 (lote processado) na raiz, mas o cStat real do cancelamento (135=homologado, 155=fora de prazo) está dentro de <retEvento><infEvento>. Sempre ler de lá.
+Mapa de status tab_nfce.status_nfce
+Código	Label	Cor
+0	Digitada	#95a5a6
+1	Validada	#3498db
+2	Processando	#f39c12
+3	Autorizado	#27ae60
+4	Rejeitado	#e74c3c
+5	Denegada	#c0392b
+6	Cancelada	#7f8c8d
+7	Inutilizada	#95a5a6
+8	Contingência	#e67e22
+5. BUG ATUAL — XML de cancelamento não salva
+Sintoma
+
+Após cancelar com sucesso (cStat=135, status_nfce=6), os campos tab_nfce.xml_cancelado e tab_nfce.xml_cancelado_ret continuam nulos.
+Onde investigar (no NfceTransmissor::cancelar())
+
+O bloco que faz o UPDATE já existe (foi aplicado), mas algo falha silenciosamente. Possíveis causas:
+
+    rowCount()=0 — a WHERE emp_codigo=:emp AND numero_nfce=:num não bate
+
+    Colunas xml_cancelado / xml_cancelado_ret não existem em tab_nfce (ou nome diferente)
+
+    montarProcEventoCancelamento() retornou vazio ou com erro, mas o bindValue não falhou
+
+Ação imediata
+
+    Confirma colunas:
+    sql
+
+    SHOW COLUMNS FROM tab_nfce LIKE 'xml_cancelado%';
+
+    Adiciona log com rowCount no bloco do UPDATE do cancelar():
+    php
+
+    $sql->execute();
+    $this->log("UPDATE xml_cancelado | rowCount=" . $sql->rowCount());
+
+    Loga o tamanho do XML gerado antes do bind:
+    php
+
+    $this->log("XML cancelado gerado: " . strlen($xmlCancelado) . " bytes");
+    $this->log("XML ret gerado: " . strlen($xmlCanceladoRet) . " bytes");
+
+    Testa o UPDATE manual no MySQL com o número:
+    sql
+
+    UPDATE tab_nfce SET xml_cancelado = 'TESTE' WHERE emp_codigo = 1 AND numero_nfce = <N>;
+
+Comparação com VB6 (referência)
+vb
+
+UPDATE tab_nfce SET
+    xml_cancelado_ret='...',
+    xml_cancelado='...'
+WHERE emp_codigo=... AND numero_nfce=...
+
+O VB6 faz em um único UPDATE. O PHP faz em 2 UPDATEs separados (status + XMLs) — isso está OK, o problema é que o segundo não está gravando.
+6. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf, pibsmun (minúsculo); vIBSUF (maiúsculo).
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    🔴 PHP 7.1.9 — catch (Throwable $t), sem sintaxe moderna.
+
+    🔴 json_encode falha silenciosamente → JSON_PARTIAL_OUTPUT_ON_ERROR.
+
+    🔴 CancelarNF retorna cStat da raiz (128) — o cStat real está no <retEvento>.
+
+    🔴 InutilizarNF idem — cStat real no <retInutNFe> (102).
+
+    🔴 Justificativa com acento → erro de schema. Sempre sanitizarTexto().
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> antes de assinar.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    Prioridade classificação: produto → NCM → padrão.
+
+    StatusDoServico (não StatusServico).
+
+    Projeto é React + Vite — sem Electron.
+
+    PowerShell: aspas simples, comando em uma linha.
+
+    coluna = coluna em JOIN — nunca AND coluna solto (produto cartesiano).
+
+    MySQL 4.1 — sem CTE, window functions, IF NOT EXISTS em índices.
+
+7. Roadmap
+Prioridade	Item	Status
+🔴 1	Corrigir gravação do xml_cancelado	Bug atual
+🟡 2	Job automático de inutilização (Task Scheduler)	Planejado
+🟡 3	Painel de NCMs não cadastrados	Planejado
+🟢 4	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 5	Empacotar Electron + IPC (impressão silenciosa)	Pendente
+🟢 6	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	TEF Sitef	Depois
+8. Índices de performance
+sql
+
+CREATE INDEX idx_tab_nfce_emp_data ON tab_nfce (emp_codigo, data_emissao, numero_nfce);
+CREATE INDEX idx_nfce_totais_emp_num ON nfce_totais (emp_codigo, numero_nfce);
+CREATE INDEX idx_vendas_emp_nfce ON vendas (empresa, numero_nfce);
+CREATE INDEX idx_nfce_ident_emp_num ON nfce_identificacao (emp_codigo, numero_nfce);
+
+9. Instruções para a IA no novo chat
+
+    Sistema 100% funcional exceto o bug da gravação do xml_cancelado.
+
+    Primeira ação: corrigir o bug do XML de cancelamento (item 5).
+
+    Depois: job de inutilização, painel de NCMs, e-mail, Electron.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?> antes de assinar.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas.
+
+    SEMPRE catch (Throwable $t).
+
+    SEMPRE sanitizarTexto() na justificativa.
+
+    SEMPRE ler cStat do <retEvento> / <retInutNFe>, não da raiz.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceTransmissor.php, appController.php, NotasPage.jsx, NotaDetalhesModal.jsx, CancelarNotaModal.jsx, notaService.js.
+
+Fim do documento.
+Última atualização: 02/Outubro/2026 — v10.0
+
+Contador resetado: mensagem 1 de 10. Próximo resumo na 10ª.

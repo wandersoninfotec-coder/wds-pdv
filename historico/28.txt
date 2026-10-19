@@ -1,0 +1,300 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Segunda-feira, 05/Outubro/2026
+Status: 🎉 Sistema 100% completo: emissão + contingência + alerta + impressão + notas + cancelamento + inutilização + diagnóstico + job automático de retransmissão/inutilização. Falta: agendamento no Windows + TEF.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Vite, sem Electron) — PDV desktop.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF Sitef.
+
+2. Stack/ferramentas
+Backend
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado (charset latin1).
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+    Log PHP: C:\xampp\php\logs\php_error_log.
+
+Frontend
+
+    React 19 + Vite 8 + react-router-dom 7 + zustand 5 + axios 1.20.
+
+    Pasta: D:\ANDROID\wds-pdv.
+
+    Sem Electron ainda.
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\, Esquemas\vm60\
+
+    nfceServidoresHom.ini, nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+    Logs de reprocessamento: C:\WDS Comercial\NFCeGerada\Log\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d
+pnfce_validaesquema_antesenvio = nao
+pnfce_serie                    = 1
+pnfce_ambiente                 = 2
+pnfce_inutilizar_auto          = S     ← NOVO
+pnfce_inutilizar_dia           = 1     ← NOVO
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/                      ; C:\xampp\htdocs\app_mesas_api
+├── controllers/appController.php
+├── core/Core.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅
+│   ├── NfceGeradorTxt.php          ; ✅
+│   ├── NfceTransmissor.php         ; ✅ (todos os métodos COM)
+│   └── Produto.php                 ; ✅
+└── logs/
+
+text
+
+D:\ANDROID\wds-pdv\
+├── src/
+│   ├── App.jsx                     ; rotas /notas, /diagnostico
+│   ├── pages/
+│   │   ├── DashboardPage.jsx
+│   │   ├── NotasPage.jsx/.css
+│   │   └── DiagnosticoPage.jsx/.css
+│   ├── components/
+│   │   ├── AlertaContingencia.jsx/.css
+│   │   ├── MesaDetalhesModal2.jsx
+│   │   ├── FinalizarVendaModal.jsx
+│   │   ├── SuccessModal.jsx/.css
+│   │   ├── BotaoImprimirCupom.jsx
+│   │   ├── NotaDetalhesModal.jsx/.css
+│   │   ├── CancelarNotaModal.jsx/.css
+│   │   └── InutilizarModal.jsx/.css
+│   └── services/
+│       ├── pagamentoService.js
+│       ├── impressaoService.js
+│       ├── notaService.js
+│       └── diagnosticoService.js
+
+4. O que já está pronto/validado
+Endpoints ativos
+Endpoint	Status
+POST /app/finalizarVenda	✅
+POST /app/nfcePreparar	✅
+POST /app/nfceEmitir	✅ (fallback contingência)
+POST /app/nfceStatusSefaz	✅
+POST /app/nfceReprocessarContingencia	✅
+POST /app/nfceDadosImpressao	✅
+POST /app/nfceListar	✅
+POST /app/nfceCancelar	✅
+POST /app/nfceInutilizar	✅
+POST /app/nfceDiagnostico	✅
+POST /app/diagnosticoProdutos	✅
+POST /app/nfceReprocessarRejeitadas	✅ NOVO
+Métodos em NfceTransmissor
+
+    detectarStatusSefaz() — cStat 107/108/109
+
+    transmitir() — normal + contingência
+
+    transmitirXmlAssinado() — reprocessamento
+
+    cancelar() — cStat do <retEvento>, sanitiza justificativa
+
+    inutilizar() — trata cStat 241 e 563; cStat do <retInutNFe>
+
+    reprocessarRejeitadas() — retransmite mês atual + inutiliza anteriores
+
+    reprocessarContingencia() — transmite status 8
+
+    salvarXmlAutorizado() — monta nfeProc
+
+    sanitizarTexto() — transliteração + remove não-ASCII
+
+    agruparFaixas() — agrupa números contíguos
+
+    obterCodigoUf() — UF → IBGE
+
+Frontend
+
+    Dashboard → botões "Notas Fiscais" + "Diagnóstico"
+
+    NotasPage — lista, filtros, data BR, ações por status
+
+    NotaDetalhesModal — reimprimir / cancelar / inutilizar / diagnóstico
+
+    DiagnosticoPage — 4 categorias (crítico, sem NCM, sem CFOP, CFOP inválido)
+
+    AlertaContingencia no topo do PDV
+
+Job de reprocessamento — validado (05/10)
+Comportamento	Status
+Roda no dia configurado	✅
+Aborta se SEFAZ offline	✅
+Reprocessa rejeitadas do mês (regerando XML)	✅
+Inutiliza meses anteriores (faixas contíguas)	✅
+Trata cStat 241 (já usada)	✅
+Trata cStat 563 (já inutilizada)	✅
+set_time_limit(1800) + limiteFaixas	✅
+Salva XML de inutilização em disco	✅
+
+Resultado real: 12 faixas inutilizadas com sucesso, zero falhas.
+5. Tabelas-chave do RTC
+
+    dfe_ncm_nbs_ibs_cbs → NCM → cst_ibs_cbs + cclass_trib (com vigência)
+
+    tab_tipooperacao_rtc → alíquotas por CST_IBS_CBS + cclasstrib
+
+    tab_cfop → CST/CSOSN e outras infos por cfop_codigo + cfop_indice + empresa
+
+    Relação produtos ↔ tab_cfop: produtos.cfop = "5.102-1" → split por - → cfop_codigo="5.102", cfop_indice="1"
+
+    Typos do schema:
+
+        terminino_vigencia_ncm_nbs_ibs_cbs (com "no")
+
+        dfe_gibsuf.pibsuf, dfe_gibsmun.pibsmun (minúsculo); vIBSUF (maiúsculo)
+
+6. Status da SEFAZ
+cStat	Significado
+107	Serviço em Operação → online
+108	Paralisado Momentaneamente → contingência
+109	Paralisado sem Previsão → contingência
+7. Rejeições comuns mapeadas
+cStat	Causa	Como resolver
+215	Produto sem NCM	Cadastrar NCM no produto
+391	Falta dados do cartão (TEF)	Só resolve com TEF
+865	Total pagamentos < total nota	Revisar venda
+241	Faixa já usada na SEFAZ	Marca localmente como autorizada
+563	Faixa já inutilizada	Marca localmente como inutilizada
+8. Mapa tab_nfce.status_nfce
+Código	Label
+0	Digitada
+1	Validada
+2	Processando
+3	Autorizado
+4	Rejeitado
+5	Denegada
+6	Cancelada
+7	Inutilizada
+8	Contingência
+9. Lógica de classificação fiscal (prioridade)
+
+    Produto (produtos.CST_IBS_CBS + cclastrib)
+
+    NCM (dfe_ncm_nbs_ibs_cbs → tab_tipooperacao_rtc por CST_IBS_CBS + cclasstrib)
+
+    Padrão da empresa
+
+10. Pegadinhas conhecidas
+
+    🔴 Case PDO — pibsuf, pibsmun (minúsculo); vIBSUF (maiúsculo).
+
+    🔴 Typo do schema: terminino_vigencia_ncm_nbs_ibs_cbs (com "no").
+
+    🔴 PHP 7.1.9 — catch (Throwable $t), sem fn(), sem trailing comma.
+
+    🔴 json_encode falha silenciosamente → JSON_PARTIAL_OUTPUT_ON_ERROR.
+
+    🔴 CancelarNF retorna cStat da raiz (128) — real está em <retEvento>.
+
+    🔴 InutilizarNF idem — cStat real em <retInutNFe> (102).
+
+    🔴 Justificativa com acento → sanitizarTexto() (transliteração).
+
+    🔴 cStat 241 e 563 são sucesso disfarçado — tratar como OK.
+
+    ProgID NFCex.spdNFCeX (com e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO.
+
+    NÃO adicionar <?xml?> antes de assinar.
+
+    Alíquotas 2026: IBS UF 0,10% | IBS Mun 0,00% | CBS 0,90%.
+
+    IBSCBSTot obrigatório mesmo zerado.
+
+    StatusDoServico (não StatusServico).
+
+    Projeto é React + Vite — sem Electron ainda.
+
+    MySQL 4.1 — sem CTE, window functions, IF NOT EXISTS.
+
+    coluna = coluna em JOIN — nunca AND coluna solto.
+
+    vendas.numero_nfe = 0 — regra para não emitir NFC-e se já tem NF-e.
+
+    Timezone do Apache: America/Cuiaba (UTC-4).
+
+11. Roadmap
+Prioridade	Item	Status
+🟡 1	Agendamento no Windows (Task Scheduler)	Em discussão
+🟡 2	Frontend — botões manuais para disparar os jobs	Em discussão
+🟡 3	Integração Diagnóstico ↔ Rejeições	Planejado
+🟢 4	E-mail (PHPMailer + XML + PDF)	Pendente
+🟢 5	Empacotar Electron + IPC	Pendente
+🟢 6	Fix do vendedor (codigoFuncionario)	Pendente
+⚪	TEF Sitef	Depois
+12. Instruções para a IA no novo chat
+
+    Sistema 100% funcional.
+
+    Próximo tema: decidir arquitetura do agendamento (Task Scheduler vs frontend vs ambos).
+
+    Não refatorar classes validadas sem motivo.
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?>.
+
+    SEMPRE SHOW COLUMNS antes de usar colunas.
+
+    SEMPRE catch (Throwable $t).
+
+    SEMPRE sanitizarTexto() em justificativas.
+
+    SEMPRE ler cStat do <retEvento> / <retInutNFe>.
+
+    SEMPRE tratar cStat 241 e 563 como sucesso.
+
+    Manter português, respostas técnicas com código.
+
+Fim do documento.
+Última atualização: 05/Outubro/2026 — v12.1

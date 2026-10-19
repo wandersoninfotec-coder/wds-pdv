@@ -1,0 +1,304 @@
+Documento de Transferência — Facilit NFC-e
+
+Data: Terça-feira, 29/Setembro/2026 (fim do dia)
+Status: 🎯 Saiu do 402 (encoding) para 215 (schema). Acentos corrigidos com charset=latin1 + sanitizarAscii. Agora é ajuste de casas decimais e ordem de tags. Falta corrigir ordem do blocoReformaTotal.
+1. Projeto e objetivo final
+
+    ERP legado VB6 + MySQL 4.1 (WDS Comercial).
+
+    Serviço PHP intermediário.
+
+    Facilit App (React Native/Expo) — pronto.
+
+    Facilit (React + Electron) — PDV desktop, em construção.
+
+    ERP 2.0 — futuro.
+
+    Objetivo: emitir NFC-e (modelo 65) via componente TecnoSpeed v6.0. Depois: TEF.
+
+2. Stack/ferramentas
+
+    PHP 7.1.9 (sem fn(), typed properties, trailing comma).
+
+    Apache 2.4.27 Win32, XAMPP. Roda como LocalSystem.
+
+    MySQL 4.1 legado.
+
+    Componente NFC-e TecnoSpeed v6.0 via COM.
+
+    ProgID: NFCex.spdNFCeX (com e minúsculo).
+
+    Type Library: NFCeX — C:\Windows\SysWow64\NFCeX.ocx.
+
+    php_com_dotnet habilitado.
+
+    Timezone: America/Cuiaba (UTC-4).
+
+Pastas TecnoSpeed
+
+    C:\WDS Comercial\Templates\vm60\
+
+    C:\WDS Comercial\Esquemas\vm60\
+
+    C:\WDS Comercial\nfceServidoresHom.ini / nfceServidoresProd.ini
+
+    C:\WDS Comercial\certificado\cliente.pfx (senha: 123)
+
+    Gerados: C:\WDS Comercial\NFCeGerada\ano\mes\dia\
+
+Credenciais
+
+    Software House: CNPJ 14234584000174, token 6f8547fdd9dff39473e2cb42a7568907
+
+    Emitente: CNPJ 58717761000149, UF MT, Ambiente=2
+
+Config fiscal (param_nfce)
+text
+
+pnfce_versao                   = 4.00
+pnfce_versao_esquema           = pl_010d   ← CORRETO
+pnfce_validaesquema_antesenvio = nao
+
+3. Estrutura de arquivos
+text
+
+app_mesas_api/
+├── index.php                       ; timezone America/Cuiaba
+├── core/Core.php                   ; ✅ PDO com charset=latin1
+├── controllers/appController.php
+├── models/
+│   ├── NfceFiscal.php              ; ✅ VALIDADO
+│   ├── NfceGeradorTxt.php          ; ⚠️ corrigir ordem blocoReformaTotal
+│   └── NfceTransmissor.php         ; ✅ FUNCIONANDO
+├── teste_progid.php                ; temporário
+├── teste_props.php                 ; temporário
+├── teste_envia_xml_vb6.php         ; temporário
+└── logs/{nfce_fiscal,nfce_txt,nfce_transmissor}.log
+
+text
+
+src/ (Electron)
+├── components/{MesaDetalhesModal2,FinalizarVendaModal,SuccessModal}.jsx
+└── services/pagamentoService.js
+
+4. O que já está pronto/validado
+
+    NfceFiscal::prepararTudo() — testado via VB6 autorizando ✅
+
+    COM 100% funcional: instancia, configura, gera XML, assina, transmite ✅
+
+    PDO com charset=latin1 — acentos corrigidos ✅
+
+    sanitizarAscii no NfceGeradorTxt::salvarArquivo() — remove &#402; e &#8220; ✅
+
+    fmtDec($v, $casas) corrigido — number_format com casas fixas ✅
+
+    blocoProdutos com casas corretas (4 para qCom/vUnCom/qTrib/vUnTrib, 2 para monetários) ✅
+
+    blocoReformaItem gerando CST_UB13, cClassTax_UB14, vBC_UB16, pIBSUF_UB18, vIBSUF_UB35, pIBSMun_UB37, vIBSMun_UB54, vIBS_UB54a, pCBS_UB56, vCBS_UB67 ✅
+
+    XML 100% ASCII, sem caracteres Unicode estranhos ✅
+
+5. Histórico de progresso (cStat)
+NFC-e	cStat	Motivo	Resolução
+6013-6015	402	Encoding — sem declaração/acentos corrompidos	charset PDO
+6016-6017	402	Entidades Unicode (&#402;)	sanitizarAscii
+6018	215	vPIS com 1 casa decimal	fmtDec corrigido
+6. PRÓXIMO PASSO — Ordem do blocoReformaTotal()
+
+Problema: a ordem das tags no PHP está diferente do VB6 (que autoriza). Reescrever o método seguindo exatamente a ordem de saída do VB6.
+
+Ordem correta (VB6):
+text
+
+vIS_W33           ← PRIMEIRO, sempre gravado (mesmo se 0)
+vBCIBSCBS_W35
+vDif_W38          ← vDif_UF
+vDif_W43          ← vDif_Mun  ← ANTES de W39!
+vDevTrib_W39
+vIBSUF_W41
+vDevTrib_W44
+vIBSMun_W46
+vIBS_W47
+vCredPres_W48
+vCredPresCondSus_W49
+vDif_W53
+vDevTrib_W54
+vCBS_W56
+vCredPres_W56a
+vCredPresCondSus_W56b
+
+Ordem atual PHP (errada):
+text
+
+vBCIBSCBS_W35
+vDif_W38
+vDevTrib_W39     ← ordem trocada
+vIBSUF_W41
+vDif_W43         ← fora de posição
+vDevTrib_W44
+vIBSMun_W46
+vIBS_W47
+vCredPres_W48
+vCredPresCondSus_W49
+vDif_W53
+vDevTrib_W54
+vCBS_W56
+vCredPres_W56a
+vCredPresCondSus_W56b
+vIS_W33          ← último (deveria ser primeiro)
+
+Método corrigido
+php
+
+private function blocoReformaTotal() {
+    // IS primeiro (VB6 faz ftIS antes de tudo) — sempre gravado
+    $sql = $this->db->prepare("SELECT COALESCE(SUM(vIS), 0) FROM dfe_is
+                               WHERE empresa = :emp AND nfe = :num");
+    $sql->bindValue(':emp', $this->empresa);
+    $sql->bindValue(':num', $this->numeroNfce);
+    $sql->execute();
+    $vIS = (float)$sql->fetchColumn();
+    $this->add('vIS_W33', $this->fmtDec($vIS));
+
+    $sql = $this->db->prepare("SELECT * FROM dfe_gibstotal
+                               WHERE empresa = :emp AND nfe = :num AND modelo = 65 LIMIT 1");
+    $sql->bindValue(':emp', $this->empresa);
+    $sql->bindValue(':num', $this->numeroNfce);
+    $sql->execute();
+    $ibs = $sql->fetch(PDO::FETCH_ASSOC);
+
+    $sql = $this->db->prepare("SELECT * FROM dfe_gcbstotal
+                               WHERE empresa = :emp AND nfe = :num AND modelo = 65 LIMIT 1");
+    $sql->bindValue(':emp', $this->empresa);
+    $sql->bindValue(':num', $this->numeroNfce);
+    $sql->execute();
+    $cbs = $sql->fetch(PDO::FETCH_ASSOC);
+
+    if (!$ibs && !$cbs) return;
+
+    $sql = $this->db->prepare("SELECT COALESCE(SUM(bc_ibscbs), 0) FROM dfe_gibsuf
+                               WHERE empresa = :emp AND nfe = :num");
+    $sql->bindValue(':emp', $this->empresa);
+    $sql->bindValue(':num', $this->numeroNfce);
+    $sql->execute();
+    $bcTotal = (float)$sql->fetchColumn();
+
+    $this->add('vBCIBSCBS_W35', $this->fmtDec($bcTotal));
+
+    if ($ibs) {
+        $this->add('vDif_W38',            $this->fmtDec($ibs['vDif_UF']));
+        $this->add('vDif_W43',            $this->fmtDec($ibs['vDif_Mun']));
+        $this->add('vDevTrib_W39',        $this->fmtDec($ibs['vDevTrib_UF']));
+        $this->add('vIBSUF_W41',          $this->fmtDec($ibs['vIBSUF_UF']));
+        $this->add('vDevTrib_W44',        $this->fmtDec($ibs['vDevTrib_Mun']));
+        $this->add('vIBSMun_W46',         $this->fmtDec($ibs['vIBS_Mun']));
+        $this->add('vIBS_W47',            $this->fmtDec($ibs['vIBS']));
+        $this->add('vCredPres_W48',       $this->fmtDec($ibs['vCredPres']));
+        $this->add('vCredPresCondSus_W49',$this->fmtDec($ibs['vCredPresCondSus']));
+    }
+    if ($cbs) {
+        $this->add('vDif_W53',            $this->fmtDec($cbs['vDif']));
+        $this->add('vDevTrib_W54',        $this->fmtDec($cbs['vDevTrib']));
+        $this->add('vCBS_W56',            $this->fmtDec($cbs['vCBS']));
+        $this->add('vCredPres_W56a',      $this->fmtDec($cbs['vCredPres']));
+        $this->add('vCredPresCondSus_W56b',$this->fmtDec($cbs['vCredPresCondSus']));
+    }
+}
+
+7. Pendências adicionais
+7.1 Erros 215 subsequentes (provável)
+
+Depois dessa correção, podem aparecer:
+
+    qBCMonoRet_W06d1 ou vICMSMonoRet_W06e — ajustar casas
+
+    <autXML> faltante (opcional — VB6 tem, PHP não; não bloqueia schema)
+
+    Alguma tag com casa decimal diferente
+
+7.2 Depois de autorizar
+
+    Patches Electron:
+
+        pagamentoService.js: adicionar emitirNfce + finalizarEEmitir
+
+        FinalizarVendaModal.jsx: trocar finalizarVenda por finalizarEEmitir + origem:'FACILIT'
+
+        MesaDetalhesModal2.jsx: mesclar detalhesExtras no SuccessModal
+
+    Fix do vendedor: login retornar codigoFuncionario, MesaDetalhesModal2 usar user?.codigoFuncionario || 1, vendaAbrir rejeitar <= 0
+
+    Refatorar inicializarCom() — carregar CNPJ/UF/certificado do nfceconfig.ini + banco
+
+    Apagar teste_*.php
+
+    Remover debug_raw do nfcePreparar
+
+7.3 Pendências gerais
+
+    Fila/lock (componente não thread-safe)
+
+    <autXML> (opcional, quando tiver autorizados download XML)
+
+    TEF: não iniciado
+
+8. Pegadinhas conhecidas
+
+    PHP 7.1.9 — sem sintaxe moderna.
+
+    ProgID NFCex.spdNFCeX (e minúsculo).
+
+    Componente NÃO lê .ini — tudo via COM.
+
+    ConverterLoteParaXml recebe CAMINHO (não conteúdo).
+
+    lkTXTDataSet = 1.
+
+    NÃO adicionar <?xml?> — VB6 não usa.
+
+    pnfce_versao_esquema = pl_010d — CORRETO.
+
+    SEFAZ reporta problemas como 402/215 — não confiar cegamente no motivo.
+
+    PDO precisa charset=latin1 — MySQL 4.1 legado.
+
+    sanitizarAscii remove acentos antes de gravar o TXT.
+
+    fmtDec($v, $casas) com number_format fixo — nunca remover zeros.
+
+    Ordem de tags no TXT importa — o componente valida sequencialmente.
+
+    PowerShell: aspas simples, comando em uma linha só.
+
+    funcionarios.USER = palavra reservada SQL.
+
+    vendas.vendedor = funcionarios.codigo.
+
+9. Instruções para a IA no novo chat
+
+    Preparação fiscal, geração de TXT/XML e transmissão COM — 100% funcionais.
+
+    Acentos corrigidos. Erros de schema sendo ajustados um a um.
+
+    Primeira ação: aplicar a correção do blocoReformaTotal acima e testar.
+
+Se autorizar: aplicar patches Electron + fix do vendedor.
+Se aparecer outro 215: ajustar aquela tag específica (casas decimais, ordem, campo faltando).
+
+Regras:
+
+    Não usar sintaxe PHP 7.2+.
+
+    NÃO reintroduzir <?xml?>.
+
+    NÃO forçar mb_convert_encoding.
+
+    Manter português, respostas técnicas com código.
+
+    Se precisar, pedir para colar: NfceFiscal.php, NfceGeradorTxt.php, NfceTransmissor.php, appController.php, FinalizarVendaModal.jsx, MesaDetalhesModal2.jsx, pagamentoService.js.
+
+Estado emocional: 🎯 Ordem de tags de distância da primeira autorização.
+
+Fim do documento.
+Última atualização: 29/Setembro/2026 — v2.1

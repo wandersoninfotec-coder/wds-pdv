@@ -1,0 +1,164 @@
+/* src/components/TefModal.css */
+
+:root {
+  --tema-cor: #27ae60;
+  --tema-cor-suave: #eaf9f1;
+}
+
+.tef-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 6000;
+  padding: 20px;
+}
+
+.tef-content {
+  background: #fff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px 28px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* ============ HEADER ============ */
+.tef-header {
+  margin-bottom: 20px;
+}
+.tef-titulo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #2c3e50;
+}
+.tef-sub {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--tema-cor, #27ae60);
+  margin-top: 6px;
+}
+
+/* ============ MENSAGEM ============ */
+.tef-mensagem {
+  background: #f7f9fc;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  font-size: 15px;
+  color: #2c3e50;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: pre-line;
+}
+
+/* ============ COLETA ============ */
+.tef-coleta {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tef-input {
+  flex: 1;
+  padding: 12px 14px;
+  font-size: 16px;
+  border: 2px solid var(--tema-cor, #3498db);
+  border-radius: 8px;
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+.tef-input:focus {
+  border-color: var(--tema-cor, #3498db);
+  filter: brightness(0.92);
+}
+.tef-coleta-dica {
+  color: #666;
+}
+
+/* ============ SIM/NÃO / CANCELAR / AGUARDANDO ============ */
+.tef-simnao {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.tef-cancelar {
+  margin-bottom: 16px;
+}
+.tef-aguardando {
+  font-size: 13px;
+  color: #7f8c8d;
+  margin-bottom: 16px;
+}
+
+/* ============ QR CODE ============ */
+.tef-qrcode-wrap {
+  margin: 12px 0 20px;
+}
+.tef-qrcode-titulo {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--tema-cor, #2c3e50);
+}
+
+/* ============ BOTÕES ============ */
+.tef-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  color: #fff;
+  font-family: inherit;
+}
+.tef-btn-primario {
+  background: var(--tema-cor, #27ae60);
+}
+.tef-btn-cinza {
+  background: #95a5a6;
+}
+.tef-btn-vermelho {
+  background: #e74c3c;
+}
+.tef-btn:hover {
+  filter: brightness(0.92);
+}
+
+/* ============ ERRO / RESULTADO ============ */
+.tef-erro {
+  padding: 20px;
+}
+.tef-erro-titulo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #c0392b;
+  margin-bottom: 10px;
+}
+.tef-erro-msg {
+  font-size: 14px;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  white-space: pre-line;
+}
+.tef-finalizado {
+  font-size: 16px;
+  color: var(--tema-cor, #27ae60);
+  padding: 20px;
+}
+
+/* ============ FOOTER ============ */
+.tef-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
